@@ -1,0 +1,65 @@
+Create a modern, lightweight, and fully responsive React application using Vite, React Router v6, and Tailwind CSS to browse a static photo gallery. The application must run entirely in the browser as a Single Page Application (SPA), reading static JSON data via the `fetch` API.
+
+All code elements—including variable names, function names, component names, UI text (except configuration strings), log messages, and source code comments—must be written STRICTLY in English.
+
+### 1. Configuration File (`src/config.js`)
+Create a central configuration file. Column counts must be mapped to responsive Tailwind classes or inline styles so that they automatically scale down on smaller viewports (e.g., mobile screens should gracefully fall back to 1-2 columns).
+* `ROOT_COLUMNS`: Integer specifying the grid column count for the root gallery list on desktop viewports (Default: `5`).
+* `GALLERY_COLUMNS`: Integer specifying the grid column count for the gallery image list on desktop viewports (Default: `5`).
+* `UNLABELLED_BLOCK_TITLE`: A string heading used for the top block of images that do not have any description (Default: `"Plánky a přehledy"`).
+
+### 2. Architecture & Dynamic Routing
+Galleries can be deeply nested (e.g., `pribenice/2020`). The application must handle arbitrary path depths safely.
+* **Routes:**
+  * Root View: `/`
+  * Gallery View: `/gallery/:galleryPath*` (Using a wildcard/splat parameter to capture multi-level nested directories like `pribenice/2020`).
+  * Photo View: `/gallery/:galleryPath*/photo/:imageName`
+* **Asset Path Construction:**
+  * On the root page, fetch `/root.json`.
+  * On gallery and photo pages, fetch `/${galleryPath}/index.json`.
+  * Image source paths must be constructed relative to the current gallery path:
+    * Thumbnail URL: `/${galleryPath}/${preview}`
+    * Full Image URL: `/${galleryPath}/${image}`
+* **State Management:** When a user lands directly on a Photo View URL, the component must fetch the corresponding gallery `index.json` first. This ensures the app knows the complete sequence of the `"images"` array for metadata parsing and linear navigation.
+
+### 3. Data Processing & Layout Logic
+
+#### Gallery View Logic (`/gallery/:galleryPath*`)
+* **Empty Galleries / Index-Only Directories:** If a directory contains zero images but has a list of `"subdirectories"`, render the page gracefully without breaking. Skip the photo grid sections entirely and display the subdirectories section.
+* **Separation of Unlabelled Images:**
+  * If the gallery JSON contains descriptions for *at least one* image, check if there are images at the beginning of the array with a `null`, empty, or missing `"description"` property.
+  * If such unlabelled images exist, isolate them into a separate top grid block under the header string defined in `UNLABELLED_BLOCK_TITLE`.
+  * Follow this with a second distinct grid block containing the rest of the images (those with descriptions).
+  * *Standard Fallback:* If *zero* images in the entire gallery have a description, do not separate them. Render all images together in a single, unified grid layout.
+
+#### Sequential Photo Navigation Logic (`/gallery/:galleryPath*/photo/:imageName`)
+* **Linear Continuity:** When a user navigates between photos using "Previous" / "Next" controls or arrow keys, the loop order must strictly follow the original index sequence of the `"images"` array inside the JSON.
+* It must cross the visual boundary between the unlabelled block and the labelled block seamlessly.
+
+### 4. Component View Specifications
+
+#### Root Page Component
+* **UI:** A clean header with the gallery title, followed by a responsive grid using the `ROOT_COLUMNS` setting for desktop layout.
+* **Gallery Card:** Each item shows the thumbnail from `"preview_path"`. Underneath the image, cleanly render the gallery `"name"` and `"date"`. Clicking a card navigates to `/gallery/${directory}`.
+
+#### Gallery Page Component
+* **UI:** Breadcrumb/Back link to Root (`/`). Display the gallery `"name"`, `"date"`, `"event"`, and `"note"` at the top if they are available in the fetched JSON.
+* **Photo Grids:** Render the separated or unified photo grids using the `GALLERY_COLUMNS` configuration for desktop viewports.
+* **Image Card:** Displays the thumbnail image. Directly below the thumbnail, render its `"description"`. If the description is missing or null, keep the layout container structurally aligned. Clicking a thumbnail navigates to the Photo View.
+* **Subdirectories Section:** This section must be rendered STRICTLY at the bottom of the page, below all photo content. Each item in the `"subdirectories"` array must be displayed as a styled interactive tile containing a folder icon (SVG or Lucide icon) and the subdirectory name. Clicking it appends the folder name to the current path, navigating deeper into the gallery structure.
+
+#### Photo Page Component
+* **UI:** A clear navigation link back to `/gallery/${galleryPath}`.
+* **Stage:** Display the full-sized image scaled dynamically to fit within the viewport boundaries without causing unwanted page overflows.
+* **Metadata Overlay:** Show the photo's text description, filename, and relative path structures.
+* **Controls:**
+  * "Previous" and "Next" buttons that become hidden or disabled when the user reaches the first or last index of the array, respectively.
+  * A global `useEffect` keyboard listener tracking hardware keys: `Left Arrow` triggers "Previous", `Right Arrow` triggers "Next", and `Escape` closes the view to return the user to the Gallery Page.
+
+### 5. Expected Deliverables
+Provide clean, complete, and production-ready implementations for:
+1. `src/config.js`
+2. `src/App.jsx` (with the React Router v6 setup)
+3. `src/components/RootView.jsx`
+4. `src/components/GalleryView.jsx`
+5. `src/components/PhotoView.jsx`
