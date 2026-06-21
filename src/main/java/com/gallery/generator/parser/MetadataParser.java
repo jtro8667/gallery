@@ -64,14 +64,19 @@ public class MetadataParser {
                 String id = trimmedLine.substring(0, firstSpaceIndex).trim();
                 String description = trimmedLine.substring(firstSpaceIndex).trim();
 
+                // ROBUST CLEANING CRITERIA: Remove any hidden carriage returns, line feeds, tabs, or non-breaking spaces
+                id = id.replaceAll("[\\r\\n\\t\\u00A0]", "").trim();
+
                 if (id.isEmpty() || description.isEmpty()) {
                     System.err.println("WARNING: Invalid row elements found in line: " + line + " in " + file.getAbsolutePath());
                     continue;
                 }
 
-                imageDescriptions.put(id, description);
+                // Store inside the index map using full lowercase as per architecture requirements
+                imageDescriptions.put(id.toLowerCase(), description);
                 hasDescriptions = true;
             }
+
 
         } catch (Exception e) {
             System.err.println("WARNING: Error reading metadata file " + file.getAbsolutePath() + ": " + e.getMessage());
