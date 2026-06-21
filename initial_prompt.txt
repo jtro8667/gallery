@@ -1,0 +1,54 @@
+Generate a command line Java 21 program using the Jackson JSON library (jackson-databind, jackson-core, jackson-annotations) and managed via Maven. The project must be structured into multiple, maintainable source files/classes (e.g., dedicated classes for configuration, metadata parsing, image processing, JSON models, and main orchestrator). Every generated file must be presented in its own code block, preceded by its exact file name and directory path relative to the Maven project structure (e.g., pom.xml or src/main/java/.../ClassName.java).
+
+All code elements within the Java files—including class names, method names, variable names, documentation, and source code comments—must be written strictly in English.
+
+The program will use these configuration parameters with specified default values:
+source_dir=/mnt/F/mess/hrady
+target_dir=/mnt/F/mess/gallery
+target_image_resolution_pct=25
+target_preview_resolution_pct=6.25
+target_preview_dir_name=preview
+files_to_process_mask=*.jpg, *.png
+metadata_file_mask=_index.txt
+additional_file_mask=note.txt
+excluded_subdirectories_mask=x
+metadata_ID_to_image_mapping=DSC_<ID>.jpg
+no_comments_files_mask=_map*.*,_cedule*.*
+gallery_JSON_name=index.json
+root_JSON_name=root.json
+
+The program configuration should be loaded from a configuration file hardcoded in the program (e.g., config.properties using standard Java Properties format). However, any parameter can be overridden via command-line arguments using the key=value format (e.g., `source_dir=/new/path`).
+
+The program is strictly forbidden from writing anywhere into source_dir or its subdirectories. Therefore, target_dir must not be a subdirectory of source_dir.
+
+The program should first check that source_dir is different to target_dir and that target_dir is not a subdirectory of source_dir. If any of these conditions are met, write an ERROR and do not proceed any further.
+Then check existence of source_dir.
+If target_dir does not exist, create it. Delete all the content of target_dir completely before proceeding.
+Recursively walk through source_dir and for every directory found (called source-gallery) create a directory of the same name and relative structure in target_dir (target-gallery).
+
+All checks of masks should be done case insensitive. Wildcards like `*` and `?` in masks should be handled properly (interpreted as standard filesystem wildcards: `*` means zero or more characters, `?` means exactly one character) by converting them to regular expressions internally.
+All text files in source_dir should be using code page Windows-1250.
+If a mask contains a comma, it means there are more options to check. Spaces around commas in masks must be automatically trimmed.
+
+In every source-gallery:
+  1) If you encounter a directory fitting the excluded_subdirectories_mask write only a message: "Excluding " + full path of the directory and do not process the content of that directory.
+  2) Read all the images fitting files_to_process_mask and create a resized image (keep the image name) in target_gallery scaling the image in both directions by target_image_resolution_pct, which is a value in percent. As well create a subdirectory target_preview_dir in target-gallery if it does not already exist and generate there preview images (keep the image name) scaling the image in both directions by target_preview_resolution_pct).
+  3) Create in the target_gallery a pretty-printed (human-readable) JSON using Jackson called gallery_JSON_name that will contain a list of all images generated in the target-gallery together with corresponding preview images.
+  4) In every source-gallery there should be exactly 1 file matching metadata_file_mask (metadata-file). If the file is not present, write a warning to the console and use the current directory name as a fallback gallery name (with no date).
+  5) If any other `.txt` file besides the file matching metadata_file_mask and the file matching additional_file_mask is found in the directory, write a warning with the full file path.
+  6) metadata-file has a header row and optionally descriptions for individual images:
+     - The header row contains the name of the gallery (mandatory), optionally a comma followed by a date, and optionally the name of the event in brackets.
+       *Example format:* `Pribence, 6.12.2020 (Cundr kolem Luznice)` -> Name: `Pribence`, Date: `6.12.2020`, Event: `Cundr kolem Luznice`.
+       Implement the parsing of this header row strictly without using regular expressions (use standard string manipulation functions like indexOf, substring, split, trim, etc.). If the structure of the header row does not meet this description, write a warning.
+       Put this information (general) at the beginning of the JSON file as a root object.
+     - The metadata file has on every non-empty row (excluding the header row) an ID of an image followed by some whitespaces and the description. The first contiguous block of text on the row is the ID, and everything following the whitespace is the description (which can contain spaces). If anything else is found, write a warning.
+     - To match the ID to the image file names, use metadata_ID_to_image_mapping. No string padding or leading zeros should be automatically added to the ID; it must match the filename template exactly. This mapping comparison must be case-insensitive.
+     - If the metadata file contains only the header row and no image descriptions, it is considered valid and no warning is issued. However, if there is a description for at least one image, then descriptions must be provided for all files matching files_to_process_mask, excluding those that match no_comments_files_mask. If that's not the case, write a Warning with details.
+     - Description should be added to the image information in the JSON file.
+     - Image list sorting in the JSON file: Files without a matching description must come first, sorted alphabetically by filename. Then, files with a description must follow, also sorted alphabetically by filename. Use Jackson's serialization configuration or property ordering to maintain this exact order in the generated JSON.
+  7) If a file matching additional_file_mask is found, add its content into a "note" attribute to the JSON file after general.
+  8) If there are subdirectories containing files matching files_to_process_mask, add them to the end of the JSON file as an array of strings under the key `"subdirectories"` (e.g., `"subdirectories": ["dir0", "dir1", "dir4"]`).
+  9) If anything unexpected happens, always write a warning.
+  10) In the target_dir, generate a pretty-printed (human-readable) JSON root_JSON_name containing a list of only top-level galleries directly under this directory (nested subdirectories should be skipped in this root tracking). For every gallery, include its name, date (if present in the metadata file), the relative path to the gallery directory (`"directory"`), the exact name of the gallery JSON file (`"gallery_json_name"`), and the relative path to the gallery preview image (`"preview_path"`). The preview image must be the preview of the first image in the gallery not matching no_comments_files_mask. If no such image exists (e.g., all images match the mask or the gallery is empty), fall back to the first available image in the gallery and issue a warning to the console.
+
+Add parameter CheckOnly. If this parameter is set, the application will not gnerate any output files, only print errors and warning it would normally produce during the processing.
