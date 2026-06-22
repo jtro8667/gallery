@@ -166,32 +166,45 @@ public class ImageResizer {
         return 1;
     }
 
+    /**
+     * Physically rotates the pixel buffer layout using affine matrix calculations based on EXIF marker types.
+     * Copies the exact source ColorModel and generates a compatible WritableRaster to preserve
+     * advanced color profiles (preventing inverted yellow/red tints on CMYK/YCCK JPEGs).
+     */
     private static BufferedImage correctOrientation(BufferedImage src, int orientation) {
         if (orientation <= 1 || orientation > 8) {
-            return src;
+            return src; // No complex structural rotation mappings required
         }
 
         int w = src.getWidth();
         int h = src.getHeight();
 
+        // Target canvas sizes must flip for 90 or 270 degree rotation turns
         int targetW = (orientation == 6 || orientation == 8) ? h : w;
         int targetH = (orientation == 6 || orientation == 8) ? w : h;
 
-        BufferedImage rotated = new BufferedImage(targetW, targetH, src.getType());
+        // Fix: Dynamically create a color-compatible destination buffer using the source's native ColorModel.
+        // This strictly prevents channel inversion bugs (red/yellow color casts) across exotic color profiles.
+        java.awt.image.ColorModel cm = src.getColorModel();
+        java.awt.image.WritableRaster raster = cm.createCompatibleWritableRaster(targetW, targetH);
+        BufferedImage rotated = new BufferedImage(cm, raster, cm.isAlphaPremultiplied(), null);
+
         Graphics2D g2d = rotated.createGraphics();
+
+        // High quality interpolation guarantees clean rotation boundaries
         g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
         AffineTransform at = new AffineTransform();
         switch (orientation) {
-            case 3 -> {
+            case 3 -> { // 180 degrees turn
                 at.translate(w, h);
                 at.rotate(Math.PI);
             }
-            case 6 -> {
+            case 6 -> { // 90 degrees clockwise turn
                 at.translate(h, 0);
                 at.rotate(Math.PI / 2);
             }
-            case 8 -> {
+            case 8 -> { // 270 degrees clockwise turn (90 degrees counter-clockwise)
                 at.translate(0, w);
                 at.rotate(-Math.PI / 2);
             }
