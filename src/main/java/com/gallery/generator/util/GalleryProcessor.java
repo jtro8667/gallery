@@ -90,11 +90,17 @@ public class GalleryProcessor {
             }
         }
 
-        if (!imageFiles.isEmpty() || !metadataFiles.isEmpty()) {
-            logProgress(String.format("Processing directory %s: %d images found.", currentSrcDir.getName(), imageFiles.size()));
+        // Fix: Trigger processing if there are images, metadata, or active subdirectories,
+        // BUT strictly forbid generating a local gallery index.json for the root baseSrcDir itself.
+        boolean isRootBaseDirectory = currentSrcDir.equals(baseSrcDir);
+
+        if (!isRootBaseDirectory && (!imageFiles.isEmpty() || !metadataFiles.isEmpty() || !subdirectoriesWithImages.isEmpty())) {
+            logProgress(String.format("Processing directory %s: %d images found, %d active subdirectories.",
+                    currentSrcDir.getName(), imageFiles.size(), subdirectoriesWithImages.size()));
             processGalleryContents(currentSrcDir, currentTgtDir, baseSrcDir, imageFiles, metadataFiles, additionalFile, subdirectoriesWithImages);
         }
 
+        // Continue deep tree traversal for subdirectories (this must always run from root to discover galleries)
         for (File file : allFiles) {
             if (file.isDirectory()) {
                 processDirectory(file, baseSrcDir, baseTgtDir);
@@ -113,8 +119,16 @@ public class GalleryProcessor {
                 System.err.println("WARNING: Metadata header validation warning on file: " + metadataFiles.get(0).getAbsolutePath());
             }
         } else {
-            System.err.println("WARNING: Expected exactly 1 metadata file in gallery path: " + currentSrcDir.getAbsolutePath() + " (Found: " + metadataFiles.size() + ")");
-            parser.parse(Optional.empty(), currentSrcDir.getName());
+            // Fix: If local metadata file is absent, attempt to extract fallback name from deep active nested subdirectories first
+            String deepFallbackName = findFirstDeepMetadataName(currentSrcDir);
+            if (deepFallbackName == null) {
+                deepFallbackName = currentSrcDir.getName();
+            }
+
+            if (metadataFiles.size() > 1) {
+                System.err.println("WARNING: Expected exactly 1 metadata file in gallery path: " + currentSrcDir.getAbsolutePath() + " (Found: " + metadataFiles.size() + ")");
+            }
+            parser.parse(Optional.empty(), deepFallbackName);
         }
 
         String noteContent = null;
@@ -145,7 +159,6 @@ public class GalleryProcessor {
                         logProgress(" -> Processing file: " + img.getName());
                     }
 
-                    // Enforce lowercased extension for output filenames
                     String baseName = img.getName();
                     int dotIndex = baseName.lastIndexOf('.');
                     String targetFilename = baseName;
@@ -206,26 +219,57 @@ public class GalleryProcessor {
 
         validateMissingDescriptions(imageFiles, parser, currentSrcDir.getAbsolutePath());
 
-        synchronized (imagesWithoutDesc) {
-            imagesWithoutDesc.sort(Comparator.comparing(ImageEntry::image));
-        }
-        synchronized (imagesWithDesc) {
-            imagesWithDesc.sort(Comparator.comparing(ImageEntry::image));
-        }
+        imagesWithoutDesc.sort(Comparator.comparing(ImageEntry::image));
+        imagesWithDesc.sort(Comparator.comparing(ImageEntry::image));
 
-        List combinedImagesList = new ArrayList<>();
+        List<ImageEntry> combinedImagesList = new ArrayList<>();
         combinedImagesList.addAll(imagesWithoutDesc);
         combinedImagesList.addAll(imagesWithDesc);
+
         if (!config.isCheckOnly()) {
+            // Fix: Guarantee structure directory is always generated even for container-only galleries containing subfolders
             if (!currentTgtDir.exists() && !currentTgtDir.mkdirs()) {
-                System.err.println("WARNING: Failed creating structure directory for JSON metadata: " + currentTgtDir.getAbsolutePath());
+                System.err.println("WARNING: Failed creating structure directory for JSON metadata container: " + currentTgtDir.getAbsolutePath());
             } else {
                 writeGalleryJson(currentTgtDir, parser, noteContent, combinedImagesList, subdirectoriesWithImages);
             }
         }
+
         if (currentSrcDir.getParentFile().equals(baseSrcDir)) {
             trackRootEntry(currentSrcDir.getName(), parser, combinedImagesList);
         }
+    }
+
+    /**
+     * Recursively traverses subdirectories to extract the gallery name from the very first metadata file it encounters.
+     * Returns null if no deeper metadata properties are available.
+     */
+    private String findFirstDeepMetadataName(File dir) {
+        File[] children = dir.listFiles();
+        if (children == null) return null;
+
+        // Step 1: Scan files in the current child scope for an immediate metadata match
+        for (File child : children) {
+            if (!child.isDirectory() && metaMask.matches(child.getName())) {
+                MetadataParser tempParser = new MetadataParser();
+                tempParser.parse(Optional.of(child), dir.getName());
+                String derivedName = tempParser.getGalleryName();
+                if (derivedName != null && !derivedName.isBlank()) {
+                    return derivedName;
+                }
+            }
+        }
+
+        // Step 2: Traverse deeper into subdirectories recursively if no local file was discovered
+        for (File child : children) {
+            if (child.isDirectory() && !excludeSubMask.matches(child.getName())) {
+                String deepName = findFirstDeepMetadataName(child);
+                if (deepName != null) {
+                    return deepName;
+                }
+            }
+        }
+        return null;
     }
 
     private String lookupDescription(String filename, Map<String, String> descriptions, Set matchedIds) {
@@ -274,7 +318,7 @@ public class GalleryProcessor {
                 if (!noCommentMask.matches(img.getName())) {
                     String checkId = lookupId(img.getName());
                     if (checkId == null || !parser.getImageDescriptions().containsKey(checkId.toLowerCase())) {
-                        System.err.println("WARNING: Missing description inside metadata record index definitions for active image target: " + img.getName() + " in directory: " + currentSrcDirPath);
+                        System.err.println("WARNING: Directory: " + currentSrcDirPath + " - missing metadata description for image: " + img.getName());
                     }
                 }
             }
@@ -296,7 +340,7 @@ public class GalleryProcessor {
         }
         for (String declaredId : declaredDescriptions.keySet()) {
             if (!filesystemIdsLower.contains(declaredId.toLowerCase())) {
-                System.err.println(String.format("WARNING: Metadata file declares description for ID '%s', but no matching image file exists on the filesystem in directory: %s", declaredId, currentSrcDirPath));
+                System.err.println(String.format("WARNING: Directory: %s - metadata declares description for ID '%s', but no matching image file exists.", currentSrcDirPath, declaredId));
             }
         }
     }
@@ -318,17 +362,84 @@ public class GalleryProcessor {
     }
 
     private String determineRootPreview(List<ImageEntry> images, MaskMatcher noCommentMask, String topLevelDir) {
-        if (images == null || images.isEmpty()) {
-            System.err.println("WARNING: Gallery directory is empty or has no images. Root tracking preview missing for: " + topLevelDir);
-            return null;
+        if (images != null && !images.isEmpty()) {
+            for (ImageEntry entry : images) {
+                if (!noCommentMask.matches(entry.image())) {
+                    return topLevelDir + "/" + entry.preview();
+                }
+            }
+            System.err.println(String.format("WARNING: All images in %s match no_comments_files_mask. Using first available image for preview.", topLevelDir));
+            return topLevelDir + "/" + images.get(0).preview();
         }
-        for (ImageEntry entry : images) {
-            if (!noCommentMask.matches(entry.image())) {
-                return topLevelDir + "/" + entry.preview();
+
+        // Fix: If the top-level gallery is a container with no direct images, search recursively in subdirectories
+        String deepPreviewPath = findFirstDeepPreview(new File(config.getSourceDir(), topLevelDir), noCommentMask);
+        if (deepPreviewPath != null) {
+            return topLevelDir + "/" + deepPreviewPath;
+        }
+
+        System.err.println("WARNING: Gallery directory and its subdirectories are empty or have no images. Root tracking preview missing for: " + topLevelDir);
+        return null;
+    }
+
+    /**
+     * Recursively traverses subdirectories to find the first available preview image from the first active subfolder.
+     * Respects filtering masks and builds the proper relative path segment.
+     */
+    private String findFirstDeepPreview(File srcDir, MaskMatcher noCommentMask) {
+        File[] allFiles = srcDir.listFiles();
+        if (allFiles == null) return null;
+
+        List<File> localImages = new ArrayList<>();
+        List<File> subDirs = new ArrayList<>();
+
+        for (File file : allFiles) {
+            if (file.isDirectory()) {
+                if (!excludeSubMask.matches(file.getName())) {
+                    subDirs.add(file);
+                }
+            } else if (imageMask.matches(file.getName())) {
+                localImages.add(file);
             }
         }
-        System.err.println(String.format("WARNING: All images in %s match no_comments_files_mask. Using first available image for preview.", topLevelDir));
-        return topLevelDir + "/" + images.get(0).preview();
+
+        // Sort both collections alphabetically to maintain deterministic structural scanning
+        localImages.sort(Comparator.comparing(File::getName));
+        subDirs.sort(Comparator.comparing(File::getName));
+
+        // If current directory contains valid image assets, extract the preferred preview entry
+        if (!localImages.isEmpty()) {
+            String selectedImage = null;
+            // Strategy 1: Attempt to grab the first file that does not match the comments exclusion mask
+            for (File img : localImages) {
+                if (!noCommentMask.matches(img.getName())) {
+                    selectedImage = img.getName();
+                    break;
+                }
+            }
+            // Strategy 2: Fall back to the absolute first file if everything was filtered out by comments mask
+            if (selectedImage == null) {
+                selectedImage = localImages.get(0).getName();
+            }
+
+            // Enforce lowercased extension alignment rules for the final generated preview reference
+            int dotIdx = selectedImage.lastIndexOf('.');
+            if (dotIdx != -1) {
+                selectedImage = selectedImage.substring(0, dotIdx) + selectedImage.substring(dotIdx).toLowerCase();
+            }
+
+            return config.getTargetPreviewDirName() + "/" + selectedImage;
+        }
+
+        // If current directory is empty of images, dive deeper into subdirectories sequentially
+        for (File subDir : subDirs) {
+            String deepPath = findFirstDeepPreview(subDir, noCommentMask);
+            if (deepPath != null) {
+                return subDir.getName() + "/" + deepPath;
+            }
+        }
+
+        return null;
     }
 
     private boolean hasMatchingImages(File dir, MaskMatcher imgMask, MaskMatcher excludeMask) {
