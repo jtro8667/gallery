@@ -5,10 +5,12 @@ import org.apache.commons.imaging.common.ImageMetadata;
 import org.apache.commons.imaging.formats.jpeg.JpegImageMetadata;
 import org.apache.commons.imaging.formats.jpeg.exif.ExifRewriter;
 import org.apache.commons.imaging.formats.tiff.TiffImageMetadata;
+import org.apache.commons.imaging.formats.tiff.constants.TiffTagConstants;
 import org.apache.commons.imaging.formats.tiff.write.TiffOutputSet;
 
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -22,7 +24,7 @@ import javax.imageio.ImageIO;
 public class ImageResizer {
 
     /**
-     * Resizes an image based on a percentage value.
+     * Resizes an image based on a percentage value and normalizes orientation if needed.
      */
     public static void resizeImagePct(File inputFile, File outputFile, double scalePercentage, boolean copyExif) throws IOException {
         BufferedImage originalImage = ImageIO.read(inputFile);
@@ -30,15 +32,18 @@ public class ImageResizer {
             throw new IOException("Unsupported image format or corrupted file: " + inputFile.getAbsolutePath());
         }
 
-        double factor = scalePercentage / 100.0;
-        int targetWidth = (int) Math.max(1, originalImage.getWidth() * factor);
-        int targetHeight = (int) Math.max(1, originalImage.getHeight() * factor);
+        int orientation = getExifOrientation(inputFile);
+        BufferedImage orientedImage = correctOrientation(originalImage, orientation);
 
-        renderAndWrite(originalImage, targetWidth, targetHeight, inputFile, outputFile, copyExif, true);
+        double factor = scalePercentage / 100.0;
+        int targetWidth = (int) Math.max(1, orientedImage.getWidth() * factor);
+        int targetHeight = (int) Math.max(1, orientedImage.getHeight() * factor);
+
+        renderAndWrite(orientedImage, targetWidth, targetHeight, inputFile, outputFile, copyExif, true);
     }
 
     /**
-     * Resizes an image constraining its longest side to a maximum pixel value.
+     * Resizes an image constraining its longest side to a maximum pixel value and auto-rotates it.
      */
     public static void resizeToMaxSide(File inputFile, File outputFile, int maxSidePx) throws IOException {
         BufferedImage originalImage = ImageIO.read(inputFile);
@@ -46,8 +51,11 @@ public class ImageResizer {
             throw new IOException("Unsupported image format or corrupted file: " + inputFile.getAbsolutePath());
         }
 
-        int origWidth = originalImage.getWidth();
-        int origHeight = originalImage.getHeight();
+        int orientation = getExifOrientation(inputFile);
+        BufferedImage orientedImage = correctOrientation(originalImage, orientation);
+
+        int origWidth = orientedImage.getWidth();
+        int origHeight = orientedImage.getHeight();
 
         int targetWidth = origWidth;
         int targetHeight = origHeight;
@@ -62,8 +70,7 @@ public class ImageResizer {
             }
         }
 
-        // Previews use false for copyExif and false for highQuality (nearest neighbor for speed)
-        renderAndWrite(originalImage, targetWidth, targetHeight, inputFile, outputFile, false, false);
+        renderAndWrite(orientedImage, targetWidth, targetHeight, inputFile, outputFile, false, false);
     }
 
     /**
@@ -84,8 +91,13 @@ public class ImageResizer {
         BufferedImage resizedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2d = resizedImage.createGraphics();
 
-        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, (highQuality) ? RenderingHints.VALUE_RENDER_QUALITY : RenderingHints.VALUE_RENDER_SPEED);
+        if (highQuality) {
+            g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        } else {
+            g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+            g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
+        }
 
         g2d.drawImage(originalImage, 0, 0, width, height, null);
         g2d.dispose();
@@ -136,5 +148,63 @@ public class ImageResizer {
                 System.err.println("ERROR: Fallback image recovery write routine failed: " + ioException.getMessage());
             }
         }
+    }
+
+    private static int getExifOrientation(File srcFile) {
+        try {
+            ImageMetadata metadata = Imaging.getMetadata(srcFile);
+            if (metadata instanceof JpegImageMetadata jpegMetadata) {
+                org.apache.commons.imaging.formats.tiff.TiffField field =
+                        jpegMetadata.findExifValueWithExactMatch(TiffTagConstants.TIFF_TAG_ORIENTATION);
+                if (field != null) {
+                    return field.getIntValue();
+                }
+            }
+        } catch (Exception e) {
+            // Suppress and fallback gracefully
+        }
+        return 1;
+    }
+
+    private static BufferedImage correctOrientation(BufferedImage src, int orientation) {
+        if (orientation <= 1 || orientation > 8) {
+            return src;
+        }
+
+        int w = src.getWidth();
+        int h = src.getHeight();
+
+        int targetW = (orientation == 6 || orientation == 8) ? h : w;
+        int targetH = (orientation == 6 || orientation == 8) ? w : h;
+
+        BufferedImage rotated = new BufferedImage(targetW, targetH, src.getType());
+        Graphics2D g2d = rotated.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+
+        AffineTransform at = new AffineTransform();
+        switch (orientation) {
+            case 3 -> {
+                at.translate(w, h);
+                at.rotate(Math.PI);
+            }
+            case 6 -> {
+                at.translate(h, 0);
+                at.rotate(Math.PI / 2);
+            }
+            case 8 -> {
+                at.translate(0, w);
+                at.rotate(-Math.PI / 2);
+            }
+            default -> {
+                g2d.dispose();
+                return src;
+            }
+        }
+
+        g2d.transform(at);
+        g2d.drawImage(src, 0, 0, null);
+        g2d.dispose();
+
+        return rotated;
     }
 }

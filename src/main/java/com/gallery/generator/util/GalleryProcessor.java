@@ -18,10 +18,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Orchestrates the recursive gallery processing, resizing, and data collection.
- * Ensures target directories are created lazily only if they will contain processed assets.
- */
 public class GalleryProcessor {
     private final AppConfig config;
     private final ObjectMapper mapper;
@@ -94,13 +90,11 @@ public class GalleryProcessor {
             }
         }
 
-        // Only trigger processing logic if there are active images to scale or transform
         if (!imageFiles.isEmpty() || !metadataFiles.isEmpty()) {
             logProgress(String.format("Processing directory %s: %d images found.", currentSrcDir.getName(), imageFiles.size()));
             processGalleryContents(currentSrcDir, currentTgtDir, baseSrcDir, imageFiles, metadataFiles, additionalFile, subdirectoriesWithImages);
         }
 
-        // Continue deep tree traversal for subdirectories
         for (File file : allFiles) {
             if (file.isDirectory()) {
                 processDirectory(file, baseSrcDir, baseTgtDir);
@@ -151,8 +145,17 @@ public class GalleryProcessor {
                         logProgress(" -> Processing file: " + img.getName());
                     }
 
+                    // Enforce lowercased extension for output filenames
+                    String baseName = img.getName();
+                    int dotIndex = baseName.lastIndexOf('.');
+                    String targetFilename = baseName;
+                    if (dotIndex != -1) {
+                        String nameWithoutExt = baseName.substring(0, dotIndex);
+                        String extLower = baseName.substring(dotIndex).toLowerCase();
+                        targetFilename = nameWithoutExt + extLower;
+                    }
+
                     if (!config.isCheckOnly()) {
-                        // LAZY DIRECTORY CREATION: Create the gallery folder structure at target right before writing the first file
                         synchronized (this) {
                             if (!currentTgtDir.exists() && !currentTgtDir.mkdirs()) {
                                 System.err.println("WARNING: Failed creating structure directory: " + currentTgtDir.getAbsolutePath());
@@ -160,11 +163,11 @@ public class GalleryProcessor {
                             }
                         }
 
-                        File outputImg = new File(currentTgtDir, img.getName());
+                        File outputFile = new File(currentTgtDir, targetFilename);
                         if (doNotResizeMask.matches(img.getName())) {
-                            ImageResizer.copyFileAndTransferExif(img, outputImg, config.isCopyExif());
+                            ImageResizer.copyFileAndTransferExif(img, outputFile, config.isCopyExif());
                         } else {
-                            ImageResizer.resizeImagePct(img, outputImg, config.getTargetImageResolutionPct(), config.isCopyExif());
+                            ImageResizer.resizeImagePct(img, outputFile, config.getTargetImageResolutionPct(), config.isCopyExif());
                         }
 
                         synchronized (this) {
@@ -172,14 +175,14 @@ public class GalleryProcessor {
                                 System.err.println("WARNING: Previews directory creation failed: " + previewDir.getAbsolutePath());
                             }
                         }
-                        File outputPreview = new File(previewDir, img.getName());
+                        File outputPreview = new File(previewDir, targetFilename);
                         ImageResizer.resizeToMaxSide(img, outputPreview, config.getTargetPreviewMaxSidePx());
                     }
 
                     String matchedDescription = lookupDescription(img.getName(), parser.getImageDescriptions(), matchedIds);
-                    String relativePreviewPath = config.getTargetPreviewDirName() + "/" + img.getName();
+                    String relativePreviewPath = config.getTargetPreviewDirName() + "/" + targetFilename;
 
-                    ImageEntry entry = new ImageEntry(img.getName(), relativePreviewPath, matchedDescription);
+                    ImageEntry entry = new ImageEntry(targetFilename, relativePreviewPath, matchedDescription);
                     if (matchedDescription == null) {
                         imagesWithoutDesc.add(entry);
                     } else {
@@ -210,11 +213,10 @@ public class GalleryProcessor {
             imagesWithDesc.sort(Comparator.comparing(ImageEntry::image));
         }
 
-        List<ImageEntry> combinedImagesList = new ArrayList<>();
+        List combinedImagesList = new ArrayList<>();
         combinedImagesList.addAll(imagesWithoutDesc);
         combinedImagesList.addAll(imagesWithDesc);
         if (!config.isCheckOnly()) {
-            // Guarantee directory structure exists for pure metadata-only galleries if they didn't write any images
             if (!currentTgtDir.exists() && !currentTgtDir.mkdirs()) {
                 System.err.println("WARNING: Failed creating structure directory for JSON metadata: " + currentTgtDir.getAbsolutePath());
             } else {
@@ -237,16 +239,30 @@ public class GalleryProcessor {
     }
 
     private String lookupId(String filename) {
-        String template = config.getMetadataIdToImageMapping().toLowerCase();
         String fileLower = filename.toLowerCase();
-        int idMarkerIndex = template.indexOf("<id>");
-        if (idMarkerIndex == -1) return null;
-        String prefix = template.substring(0, idMarkerIndex);
-        String suffix = template.substring(idMarkerIndex + 4);
-        if (fileLower.startsWith(prefix) && fileLower.endsWith(suffix)) {
-            int endIdx = fileLower.length() - suffix.length();
-            if (endIdx >= prefix.length()) {
-                return filename.substring(prefix.length(), endIdx);
+        String mappingConfig = config.getMetadataIdToImageMapping();
+
+        if (mappingConfig == null || mappingConfig.isBlank()) {
+            return null;
+        }
+
+        // Fix: Split the configuration string by comma to support multiple patterns properly
+        String[] patterns = mappingConfig.split(",");
+
+        for (String pattern : patterns) {
+            String template = pattern.trim().toLowerCase();
+            int idMarkerIndex = template.indexOf("<id>");
+            if (idMarkerIndex == -1) continue;
+
+            String prefix = template.substring(0, idMarkerIndex);
+            String suffix = template.substring(idMarkerIndex + 4);
+
+            if (fileLower.startsWith(prefix) && fileLower.endsWith(suffix)) {
+                int endIdx = fileLower.length() - suffix.length();
+                if (endIdx >= prefix.length()) {
+                    // Extract exactly the original ID token block bounds from the filename
+                    return filename.substring(prefix.length(), endIdx);
+                }
             }
         }
         return null;
