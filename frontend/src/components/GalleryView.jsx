@@ -63,7 +63,7 @@ export default function GalleryView() {
             {items.map((img, idx) => (
                 <Link
                     key={idx}
-                    to={`/gallery/${galleryPath}/photo/${img.image}`}
+                    to={`/gallery/${galleryPath}/${img.image}`}
                     className="bg-white rounded shadow hover:shadow-md transition-shadow duration-200 flex flex-col"
                 >
 

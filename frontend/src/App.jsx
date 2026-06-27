@@ -17,14 +17,12 @@ function App() {
                     {/* 2. Direct /gallery link goes back to root */}
                     <Route path="/gallery" element={<RootView />} />
 
-                    {/* 3. STRICT MATCH FOR PHOTO VIEW (Must be ABOVE the general gallery path)
-                 This explicitly catches paths ending with /photo/:imageName */}
-                    <Route path="/gallery/*" element={
-                        <Routes>
-                            <Route path="*/photo/:imageName" element={<PhotoView />} />
-                            <Route path="*" element={<GalleryView />} />
-                        </Routes>
-                    } />
+                    {/* 3. Photo View - Specific route for individual photos */}
+                    {/* This will match paths like /gallery/Beistein/DSC_56984.jpg or /gallery/pribenice/2020/IMG_1234.jpg */}
+                    <Route path="/gallery/:galleryPath/:imageName" element={<PhotoView />} />
+
+                    {/* 4. General Gallery View - Catches all other /gallery/* paths */}
+                    <Route path="/gallery/*" element={<GalleryView />} />
 
                     {/* Fallback for undefined routes */}
                     <Route path="*" element={

@@ -5,9 +5,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { CONFIG, resolveDataPath } from '../config';
 
 export default function PhotoView() {
-    const params = useParams();
-    const galleryPath = params['*'] || ''; // Catches "Beistein" or "pribenice/2020"
-    const { imageName } = params;          // Catches "DSC_51921.jpg"
+    const { galleryPath, imageName } = useParams(); // Directly extract galleryPath and imageName
 
     const navigate = useNavigate();
 
@@ -40,14 +38,14 @@ export default function PhotoView() {
     const handlePrevious = useCallback(() => {
         if (hasPrevious) {
             const prevImage = images[currentIndex - 1].image;
-            navigate(`/gallery/${galleryPath}/photo/${prevImage}`);
+            navigate(`/gallery/${galleryPath}/${prevImage}`); // Updated navigate call
         }
     }, [hasPrevious, currentIndex, images, galleryPath, navigate]);
 
     const handleNext = useCallback(() => {
         if (hasNext) {
             const nextImage = images[currentIndex + 1].image;
-            navigate(`/gallery/${galleryPath}/photo/${nextImage}`);
+            navigate(`/gallery/${galleryPath}/${nextImage}`); // Updated navigate call
         }
     }, [hasNext, currentIndex, images, galleryPath, navigate]);
 
