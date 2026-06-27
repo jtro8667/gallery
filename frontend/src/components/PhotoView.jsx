@@ -115,11 +115,16 @@ export default function PhotoView() {
                     </button>
 
                     <div className="w-full h-[70vh] flex items-center justify-center overflow-hidden">
-                        <img
-                            src={resolveDataPath(`${galleryPath}/${currentImageData.image}`)}
-                            alt={currentImageData.description || imageName}
-                            className="max-w-full max-h-full object-contain shadow-2xl rounded"
-                        />
+                        <a
+                            href={resolveDataPath(`${galleryPath}/${currentImageData.image}`)}
+                            rel="noopener noreferrer"
+                        >
+                            <img
+                                src={resolveDataPath(`${galleryPath}/${currentImageData.image}`)}
+                                alt={currentImageData.description || imageName}
+                                className="max-w-full max-h-full object-contain shadow-2xl rounded cursor-pointer"
+                            />
+                        </a>
                     </div>
 
                     <button
