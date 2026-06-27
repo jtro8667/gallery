@@ -19,7 +19,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.Iterator;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 
 public class ImageResizer {
 
@@ -32,8 +35,8 @@ public class ImageResizer {
             throw new IOException("Unsupported image format or corrupted file: " + inputFile.getAbsolutePath());
         }
 
-        int orientation = getExifOrientation(inputFile);
-        BufferedImage orientedImage = correctOrientation(originalImage, orientation);
+        int orientation = readExifOrientation(inputFile);
+        BufferedImage orientedImage = applyOrientation(originalImage, orientation);
 
         double factor = scalePercentage / 100.0;
         int targetWidth = (int) Math.max(1, orientedImage.getWidth() * factor);
@@ -47,15 +50,14 @@ public class ImageResizer {
      */
     public static void resizeToMaxSide(File inputFile, File outputFile, int maxSidePx) throws IOException {
         BufferedImage originalImage = ImageIO.read(inputFile);
-        if (originalImage == null) {
+        if (originalImage == null)
             throw new IOException("Unsupported image format or corrupted file: " + inputFile.getAbsolutePath());
-        }
 
-        int orientation = getExifOrientation(inputFile);
-        BufferedImage orientedImage = correctOrientation(originalImage, orientation);
+        int orientation = readExifOrientation(inputFile);
+        BufferedImage orientedOriginalImage = applyOrientation(originalImage, orientation);
 
-        int origWidth = orientedImage.getWidth();
-        int origHeight = orientedImage.getHeight();
+        int origWidth = orientedOriginalImage.getWidth();
+        int origHeight = orientedOriginalImage.getHeight();
 
         int targetWidth = origWidth;
         int targetHeight = origHeight;
@@ -70,7 +72,7 @@ public class ImageResizer {
             }
         }
 
-        renderAndWrite(orientedImage, targetWidth, targetHeight, inputFile, outputFile, false, false);
+        renderAndWrite(orientedOriginalImage, targetWidth, targetHeight, inputFile, outputFile, false, false);
     }
 
     /**
@@ -86,22 +88,23 @@ public class ImageResizer {
         }
     }
 
-    private static void renderAndWrite(BufferedImage originalImage, int width, int height,
+    private static void renderAndWrite(BufferedImage src, int width, int height,
                                        File inputFile, File outputFile, boolean copyExif, boolean highQuality) throws IOException {
         BufferedImage resizedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-        Graphics2D g2d = resizedImage.createGraphics();
 
-        if (highQuality) {
-            g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-        } else {
-            g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-            g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
+        Graphics2D g = resizedImage.createGraphics();
+        try {
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            g.setRenderingHint(RenderingHints.KEY_RENDERING,
+                    highQuality ? RenderingHints.VALUE_RENDER_QUALITY : RenderingHints.VALUE_RENDER_SPEED);
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.drawImage(src, 0, 0, width, height, null);
+        } finally {
+            g.dispose();
         }
 
-        g2d.drawImage(originalImage, 0, 0, width, height, null);
-        g2d.dispose();
-
+        ImageIO.write(resizedImage, "jpg", outputFile);
+        /*
         String filenameLower = inputFile.getName().toLowerCase();
         String formatName = filenameLower.endsWith(".png") ? "png" : "jpg";
 
@@ -117,8 +120,9 @@ public class ImageResizer {
             }
         } else {
             ImageIO.write(resizedImage, formatName, outputFile);
-        }
+        }*/
     }
+
 
     private static void copyResizedImageAndTransferExif(File sourceJpeg, File resizedJpeg, File destinationJpeg) {
         try {
@@ -219,5 +223,107 @@ public class ImageResizer {
         g2d.dispose();
 
         return rotated;
+    }
+
+    static BufferedImage applyOrientation(BufferedImage src, int orientation) {
+        if (orientation == 1 || orientation == 0) {
+            return src;
+        }
+
+        int w = src.getWidth();
+        int h = src.getHeight();
+        BufferedImage dst;
+        Graphics2D g;
+
+        // Dynamically create a color-compatible destination buffer using the source's native ColorModel.
+        // This strictly prevents channel inversion bugs (red/yellow color casts) across exotic color profiles.
+        java.awt.image.ColorModel cm = src.getColorModel();
+        java.awt.image.WritableRaster raster;
+
+        switch (orientation) {
+            case 3: // 180 degrees turn
+                raster = cm.createCompatibleWritableRaster(w, h);
+                dst = new BufferedImage(cm, raster, cm.isAlphaPremultiplied(), null);
+                g = dst.createGraphics();
+                g.translate(w, h);
+                g.rotate(Math.PI);
+                break;
+            case 6: // 90 degrees clockwise turn
+                raster = cm.createCompatibleWritableRaster(h, w);
+                dst = new BufferedImage(cm, raster, cm.isAlphaPremultiplied(), null);
+                g = dst.createGraphics();
+                g.translate(h, 0);
+                g.rotate(Math.PI / 2);
+                break;
+            case 8: // 270 degrees clockwise turn (90 degrees counter-clockwise)
+                raster = cm.createCompatibleWritableRaster(h, w);
+                dst = new BufferedImage(cm, raster, cm.isAlphaPremultiplied(), null);
+                g = dst.createGraphics();
+                g.translate(0, w);
+                g.rotate(-Math.PI / 2);
+                break;
+            default:
+                return src;
+        }
+
+        try {
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            g.drawImage(src, 0, 0, null);
+        } finally {
+            g.dispose();
+        }
+        return dst;
+    }
+
+    static int readExifOrientation(File file) {
+        try (ImageInputStream in = ImageIO.createImageInputStream(file)) {
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
+            if (!readers.hasNext()) {
+                return 1;
+            }
+            javax.imageio.ImageReader reader = readers.next();
+            try {
+                reader.setInput(in);
+                javax.imageio.metadata.IIOMetadata metadata = reader.getImageMetadata(0);
+                String[] names = metadata.getMetadataFormatNames();
+                for (String name : names) {
+                    try {
+                        var tree = metadata.getAsTree(name);
+                        int orientation = searchOrientation(tree);
+                        if (orientation != -1) {
+                            return orientation;
+                        }
+                    } catch (Exception ignored) {
+                    }
+                }
+            } finally {
+                reader.dispose();
+            }
+        } catch (IOException ignored) {
+        }
+        return 1;
+    }
+
+    static int searchOrientation(org.w3c.dom.Node node) {
+        if (node == null) return -1;
+        if ("unknown".equalsIgnoreCase(node.getNodeName())) {
+            var attrs = node.getAttributes();
+            if (attrs != null) {
+                var tag = attrs.getNamedItem("MarkerTag");
+                if (tag != null && "225".equals(tag.getNodeValue())) {
+                    String text = node.getTextContent();
+                    if (text != null) {
+                        if (text.contains("Rotate 90 CW")) return 6;
+                        if (text.contains("Rotate 180")) return 3;
+                        if (text.contains("Rotate 270 CW")) return 8;
+                    }
+                }
+            }
+        }
+        for (org.w3c.dom.Node child = node.getFirstChild(); child != null; child = child.getNextSibling()) {
+            int found = searchOrientation(child);
+            if (found != -1) return found;
+        }
+        return -1;
     }
 }

@@ -34,7 +34,6 @@ public class Main {
             return;
         }
 
-        // Clean target directory completely unless check_only is true
         if (!config.isCheckOnly()) {
             if (targetDir.exists()) {
                 ContentCleaner.deleteDirectoryContents(targetDir);
@@ -44,11 +43,10 @@ public class Main {
             }
         }
 
-        // Execute directory scanning and image resizing via standalone processor
         GalleryProcessor processor = new GalleryProcessor(config, mapper);
+        // Execute the optimized high-performance tree pipeline model scan layout
         processor.processDirectory(sourceDir, sourceDir, targetDir);
 
-        // Generate final root JSON file
         List<RootEntry> rootEntries = processor.getRootEntries();
         if (!config.isCheckOnly() && !rootEntries.isEmpty()) {
             File rootJsonFile = new File(targetDir, config.getRootJsonName());

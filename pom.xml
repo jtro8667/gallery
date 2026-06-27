@@ -42,6 +42,11 @@
             <artifactId>commons-imaging</artifactId>
             <version>${commons.imaging.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>6.1.0</version>
+        </dependency>
     </dependencies>
 
     <build>

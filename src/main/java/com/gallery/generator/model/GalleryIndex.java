@@ -7,11 +7,12 @@ import java.util.List;
 @JsonPropertyOrder({ "name", "date", "event", "note", "images", "subdirectories" })
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record GalleryIndex(
-    String name,
-    String date,
-    String event,
-    String note,
-    List<ImageEntry> images,
-    List<String> subdirectories
+        String name,
+        String date,
+        String event,
+        String note,
+        List<ImageEntry> images,
+        List<SubdirectoryEntry> subdirectories
 ) {}
+
 
