@@ -84,4 +84,5 @@ public class AppConfig {
     public boolean isVerbose() { return Boolean.parseBoolean(properties.getProperty("verbose", "false")); }
     public int getThreadCount() { return Integer.parseInt(properties.getProperty("thread_count", "0")); }
     public boolean isCopyExif() { return Boolean.parseBoolean(properties.getProperty("copy_exif", "true")); }
+    public boolean isIncludeWatermark() { return Boolean.parseBoolean(properties.getProperty("includeWatermark", "false")); }
 }

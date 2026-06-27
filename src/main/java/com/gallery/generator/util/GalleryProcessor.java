@@ -187,7 +187,7 @@ public class GalleryProcessor {
                         if (doNotResizeMask.matches(img.getName())) {
                             ImageResizer.copyFileAndTransferExif(img, outputFile, config.isCopyExif());
                         } else {
-                            ImageResizer.resizeImagePct(img, outputFile, config.getTargetImageResolutionPct(), config.isCopyExif());
+                            ImageResizer.resizeImagePct(img, outputFile, config.getTargetImageResolutionPct(), config.isCopyExif(), config.isIncludeWatermark());
                         }
 
                         synchronized (this) {

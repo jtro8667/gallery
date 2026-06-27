@@ -10,6 +10,7 @@ import org.apache.commons.imaging.formats.tiff.constants.TiffTagConstants;
 import org.apache.commons.imaging.formats.tiff.write.TiffOutputSet;
 
 import javax.imageio.ImageIO;
+import java.awt.AlphaComposite;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
@@ -27,7 +28,7 @@ public final class ImageResizer {
     private ImageResizer() {
     }
 
-    public static void resizeImagePct(File inputFile, File outputFile, double scalePercentage, boolean copyExif) throws IOException {
+    public static void resizeImagePct(File inputFile, File outputFile, double scalePercentage, boolean copyExif, boolean includeWatermark) throws IOException {
         BufferedImage source = readImage(inputFile);
         int orientation = getExifOrientation(inputFile);
         BufferedImage normalized = applyOrientation(source, orientation);
@@ -36,7 +37,7 @@ public final class ImageResizer {
         int targetWidth = Math.max(1, (int) Math.round(normalized.getWidth() * factor));
         int targetHeight = Math.max(1, (int) Math.round(normalized.getHeight() * factor));
 
-        renderAndWrite(normalized, targetWidth, targetHeight, inputFile, outputFile, copyExif);
+        renderAndWrite(normalized, targetWidth, targetHeight, inputFile, outputFile, copyExif, includeWatermark);
     }
 
     public static void resizeToMaxSide(File inputFile, File outputFile, int maxSidePx) throws IOException {
@@ -60,7 +61,7 @@ public final class ImageResizer {
             }
         }
 
-        renderAndWrite(normalized, targetW, targetH, inputFile, outputFile, false);
+        renderAndWrite(normalized, targetW, targetH, inputFile, outputFile, false, false);
     }
 
     public static void copyFileAndTransferExif(File inputFile, File outputFile, boolean copyExif) throws IOException {
@@ -85,7 +86,7 @@ public final class ImageResizer {
         }
     }
 
-    private static void renderAndWrite(BufferedImage src, int width, int height, File inputFile, File outputFile, boolean copyExif) throws IOException {
+    private static void renderAndWrite(BufferedImage src, int width, int height, File inputFile, File outputFile, boolean copyExif, boolean includeWatermark) throws IOException {
         BufferedImage resized = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 
         Graphics2D g = resized.createGraphics();
@@ -93,6 +94,10 @@ public final class ImageResizer {
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
             g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
             g.drawImage(src, 0, 0, width, height, null);
+            
+            if (includeWatermark) {
+                drawWatermark(g, width, height);
+            }
         } finally {
             g.dispose();
         }
@@ -261,5 +266,34 @@ public final class ImageResizer {
     private static boolean isJpeg(File file) {
         String name = file.getName().toLowerCase();
         return name.endsWith(".jpg") || name.endsWith(".jpeg");
+    }
+
+    private static void drawWatermark(Graphics2D g, int width, int height) throws IOException {
+        BufferedImage watermark = loadWatermarkFromResources();
+        if (watermark == null) {
+            return;
+        }
+
+        int padding = 10;
+        int watermarkWidth = Math.min(width / (width > height ? 4 : 3), watermark.getWidth());
+        int watermarkHeight = (int) ((double) watermarkWidth / watermark.getWidth() * watermark.getHeight());
+
+        int x = width - watermarkWidth - padding;
+        int y = height - watermarkHeight - padding;
+        
+        float alpha = 0.7f;
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+        g.drawImage(watermark, x, y, watermarkWidth, watermarkHeight, null);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+    }
+
+    private static BufferedImage loadWatermarkFromResources() throws IOException {
+        try (var input = ImageResizer.class.getClassLoader().getResourceAsStream("watermark.png")) {
+            if (input == null) {
+                System.err.println("WARNING: watermark.png not found in resources");
+                return null;
+            }
+            return ImageIO.read(input);
+        }
     }
 }
