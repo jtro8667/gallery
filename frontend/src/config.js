@@ -4,7 +4,8 @@ export const CONFIG = {
     // Base URL or path where all gallery data (root.json, images, sub-directories) is located.
     // Leave empty "" or "/" if data is directly in the public root.
     // Example: "/data" or "https://my-cdn.com"
-    DATA_BASE_URL: "http://localhost:8080",
+    //DATA_BASE_URL: "http://localhost:8080",
+    DATA_BASE_URL: "https://czech-castles-gallery.netlify.app",
 
     // Number of grid columns on desktop viewports (min-width: 1024px)
     ROOT_COLUMNS: 5,
@@ -13,7 +14,9 @@ export const CONFIG = {
     // Text headings and labels
     UNLABELLED_BLOCK_TITLE: "Plánky a přehledy",
     LABELLED_BLOCK_TITLE: "Fotografie",
-    SUBDIRECTORIES_TITLE: "Podadresáře",
+    SUBDIRECTORIES_TITLE: "Galerie",
+    EVENT_LABEL: "Akce",
+    PAGE_TITLE: "Galerie českých hradů",
 
     // Navigation buttons
     BACK_TO_ROOT: "← Zpět na přehled galerií",

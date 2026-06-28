@@ -231,7 +231,7 @@ public class GalleryProcessor {
         // Map subdirectories structured items matching formatting constraints rule updatesList
         List<SubdirectoryEntry> structuredChildren = new ArrayList<>();
         for (DirectoryResult child : activeChildResults) {
-            structuredChildren.add(new com.gallery.generator.model.SubdirectoryEntry(child.directoryName(), child.galleryJsonName()));
+            structuredChildren.add(new com.gallery.generator.model.SubdirectoryEntry(child.directoryName(), child.galleryJsonName(), child.previewPath()));
         }
         if (!config.isCheckOnly()) {
             if (!currentTgtDir.exists() && !currentTgtDir.mkdirs()) {

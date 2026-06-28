@@ -9,6 +9,9 @@ import com.gallery.generator.util.GalleryProcessor;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 
 /**
@@ -56,6 +59,11 @@ public class Main {
                 System.err.println("WARNING: Failed to write root JSON file: " + e.getMessage());
             }
         }
+        
+        if (!config.isCheckOnly()) {
+            copyNetlifyToml(targetDir);
+        }
+        
         System.out.println("Processing completed successfully.");
     }
 
@@ -83,5 +91,19 @@ public class Main {
         }
 
         return true;
+    }
+
+    private static void copyNetlifyToml(File targetDir) {
+        try (InputStream input = Main.class.getClassLoader().getResourceAsStream("netlify.toml")) {
+            if (input == null) {
+                System.err.println("WARNING: netlify.toml not found in resources, skipping copy");
+                return;
+            }
+            File netlifyTomlFile = new File(targetDir, "netlify.toml");
+            Files.copy(input, netlifyTomlFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            System.out.println("Copied netlify.toml to target directory");
+        } catch (IOException e) {
+            System.err.println("WARNING: Failed to copy netlify.toml: " + e.getMessage());
+        }
     }
 }

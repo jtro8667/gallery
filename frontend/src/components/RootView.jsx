@@ -37,7 +37,7 @@ export default function RootView() {
         <div className="max-w-7xl mx-auto px-4 py-8">
             <header className="mb-10 text-center">
                 <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
-                    Foto Galerie
+                    {CONFIG.PAGE_TITLE}
                 </h1>
             </header>
 

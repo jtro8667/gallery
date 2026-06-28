@@ -98,7 +98,7 @@ export default function GalleryView() {
                     {gallery.date && <span className="text-gray-500 text-lg">({gallery.date})</span>}
                 </div>
                 {gallery.event && (
-                    <h2 className="text-xl text-gray-600 mt-2 italic">Event: {gallery.event}</h2>
+                    <h2 className="text-xl text-gray-600 mt-2 italic">{CONFIG.EVENT_LABEL}: {gallery.event}</h2>
                 )}
                 {gallery.note && (
                     <p className="mt-4 text-gray-700 bg-gray-100 p-4 rounded border-l-4 border-gray-400 whitespace-pre-line">
@@ -127,19 +127,34 @@ export default function GalleryView() {
                 {gallery.subdirectories && gallery.subdirectories.length > 0 && (
                     <section className="mt-16 border-t border-gray-200 pt-8">
                         <h3 className="text-xl font-bold text-gray-800 mb-4">{CONFIG.SUBDIRECTORIES_TITLE}</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                             {gallery.subdirectories.map((subdir, index) => (
                                 <Link
                                     key={index}
-                                    to={`/gallery/${galleryPath}/${subdir}`}
-                                    className="flex items-center gap-3 p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-blue-50 hover:border-blue-300 transition-all group"
+                                    to={`/gallery/${galleryPath}/${subdir.directory}`}
+                                    className="group bg-white rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col"
                                 >
-                                    <svg className="w-6 h-6 text-yellow-500 group-hover:text-yellow-600 transition-colors flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-                                    </svg>
-                                    <span className="font-medium text-gray-700 group-hover:text-blue-700 truncate">
-                    {subdir}
-                  </span>
+                                    <div className="w-full aspect-[4/3] bg-gray-200 overflow-hidden">
+                                        {subdir.preview_path ? (
+                                            <img
+                                                src={resolveDataPath(`${galleryPath}/${subdir.directory}/${subdir.preview_path}`)}
+                                                alt={subdir.directory}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                loading="lazy"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center">
+                                                <svg className="w-16 h-16 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                                                </svg>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="p-4">
+                                        <span className="font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
+                                            {subdir.directory}
+                                        </span>
+                                    </div>
                                 </Link>
                             ))}
                         </div>

@@ -4,8 +4,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { CONFIG, resolveDataPath } from '../config';
 
-export default function PhotoView() {
-    const { galleryPath, imageName } = useParams(); // Directly extract galleryPath and imageName
+export default function PhotoView({ galleryPath: propGalleryPath, imageName: propImageName }) {
+    const params = useParams();
+    const galleryPath = propGalleryPath || params.galleryPath;
+    const imageName = propImageName || params.imageName;
 
     const navigate = useNavigate();
 
@@ -96,7 +98,7 @@ export default function PhotoView() {
                     <div className="text-center mb-4">
                         <h1 className="text-2xl font-bold text-gray-100">{gallery.name}</h1>
                         {gallery.date && <p className="text-gray-400 text-sm">{gallery.date}</p>}
-                        {gallery.event && <p className="text-gray-400 text-sm italic">Event: {gallery.event}</p>}
+                        {gallery.event && <p className="text-gray-400 text-sm italic">{CONFIG.EVENT_LABEL}: {gallery.event}</p>}
                     </div>
                 )}
 
@@ -114,10 +116,11 @@ export default function PhotoView() {
                         </svg>
                     </button>
 
-                    <div className="w-full h-[70vh] flex items-center justify-center overflow-hidden">
+                    <div className="w-full h-[70vh] flex items-center justify-center">
                         <a
                             href={resolveDataPath(`${galleryPath}/${currentImageData.image}`)}
                             rel="noopener noreferrer"
+                            className="flex items-center justify-center w-full h-full"
                         >
                             <img
                                 src={resolveDataPath(`${galleryPath}/${currentImageData.image}`)}

@@ -3,8 +3,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import RootView from './components/RootView';
-import GalleryView from './components/GalleryView';
-import PhotoView from './components/PhotoView';
+import GalleryOrPhotoView from './components/GalleryOrPhotoView';
 
 function App() {
     return (
@@ -17,12 +16,9 @@ function App() {
                     {/* 2. Direct /gallery link goes back to root */}
                     <Route path="/gallery" element={<RootView />} />
 
-                    {/* 3. Photo View - Specific route for individual photos with .htm suffix */}
-                    {/* This will match paths like /gallery/Beistein/DSC_56984.jpg.htm */}
-                    <Route path="/gallery/:galleryPath/:imageName.htm" element={<PhotoView />} />
-
-                    {/* 4. General Gallery View - Catches all other /gallery/* paths */}
-                    <Route path="/gallery/*" element={<GalleryView />} />
+                    {/* 3. Gallery and Photo View - Handles both gallery listings and individual photos */}
+                    {/* The component will check if the path ends with .htm to determine which view to show */}
+                    <Route path="/gallery/*" element={<GalleryOrPhotoView />} />
 
                     {/* Fallback for undefined routes */}
                     <Route path="*" element={
