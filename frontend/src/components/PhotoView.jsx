@@ -23,6 +23,7 @@ export default function PhotoView({ galleryPath: propGalleryPath, imageName: pro
             })
             .then((data) => {
                 setGallery(data);
+                document.title = `${data.name || CONFIG.PAGE_TITLE} - ${imageName}`;
                 setLoading(false);
             })
             .catch((err) => {

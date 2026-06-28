@@ -10,6 +10,7 @@ export default function RootView() {
     const [error, setError] = useState(null);
 
     useEffect(() => {
+        document.title = CONFIG.PAGE_TITLE;
         // Dynamically resolves path based on config, e.g., /data/root.json
         fetch(resolveDataPath('root.json'))
             .then((res) => {

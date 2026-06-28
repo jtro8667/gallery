@@ -21,6 +21,7 @@ export default function GalleryView() {
             })
             .then((data) => {
                 setGallery(data);
+                document.title = data.name || CONFIG.PAGE_TITLE;
                 setLoading(false);
             })
             .catch((err) => {
@@ -67,11 +68,11 @@ export default function GalleryView() {
                     className="bg-white rounded shadow hover:shadow-md transition-shadow duration-200 flex flex-col"
                 >
 
-                <div className="w-full aspect-[4/3] bg-gray-100 overflow-hidden">
+                <div className="w-full aspect-[4/3] bg-gray-100 overflow-hidden flex items-center justify-center">
                         <img
                             src={resolveDataPath(`${galleryPath}/${img.preview}`)}
                             alt={img.description || img.image}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-contain"
                             loading="lazy"
                         />
                     </div>
