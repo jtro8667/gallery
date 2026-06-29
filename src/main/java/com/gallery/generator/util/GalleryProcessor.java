@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gallery.generator.config.AppConfig;
 import com.gallery.generator.model.*;
 import com.gallery.generator.parser.MetadataParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -21,6 +23,7 @@ import java.util.stream.Stream;
  * High-performance tree processor orchestrating bottom-up data pipeline execution flows.
  */
 public class GalleryProcessor {
+    private static final Logger logger = LoggerFactory.getLogger(GalleryProcessor.class);
     private final AppConfig config;
     private final ObjectMapper jsonMapper;
     private final List<RootEntry> rootEntries = Collections.synchronizedList(new ArrayList<>());
@@ -51,8 +54,7 @@ public class GalleryProcessor {
     }
 
     private void logProgress(String message) {
-        String timestamp = LocalDateTime.now().format(timeFormatter);
-        System.out.println("[" + timestamp + "] " + message);
+        logger.info(message);
     }
 
     /**
@@ -62,7 +64,7 @@ public class GalleryProcessor {
      */
     public DirectoryResult processDirectory(File currentSrcDir, File rootDirSrc, File baseTgtDir) {
         if (excludeSubMask.matches(currentSrcDir.getName())) {
-            System.out.println("Excluding " + currentSrcDir.getAbsolutePath());
+            logger.info("Excluding {}", currentSrcDir.getAbsolutePath());
             return null;
         }
 
@@ -168,7 +170,7 @@ public class GalleryProcessor {
                 if (!noCommentMask.matches(img.getName())) {
                     String checkId = lookupId(img.getName());
                     if (checkId == null || !parser.getImageDescriptions().containsKey(checkId.toLowerCase())) {
-                        System.err.println("WARNING: Directory: " + currentSrcDirPath + " - missing metadata description for image: " + img.getName());
+                        logger.warn("Directory: {} - missing metadata for: {}", currentSrcDirPath, img.getName());
                     }
                 }
             }
@@ -188,7 +190,7 @@ public class GalleryProcessor {
         }
         for (String declaredId : declaredDescriptions.keySet()) {
             if (!filesystemIdsLower.contains(declaredId.toLowerCase()))
-                System.err.println(String.format("WARNING: Directory: %s - metadata declares description for ID '%s', but no matching image file exists.", currentSrcDirPath, declaredId));
+                logger.warn("Directory: {} - no file found for metadata ID '{}'", currentSrcDirPath, declaredId);
         }
     }
 
@@ -210,7 +212,7 @@ public class GalleryProcessor {
                 } else if (additionalMask.matches(name)) {
                     additionalFile = file;
                 } else if (name.toLowerCase().endsWith(".txt")) {
-                    System.err.println("WARNING: Unexpected text file found: " + file.getAbsolutePath());
+                    logger.warn("Unexpected text file found: {}", file.getAbsolutePath());
                 }
             }
         }
@@ -223,11 +225,11 @@ public class GalleryProcessor {
         if (metadataFiles.size() == 1) {
             parser.parse(Optional.of(metadataFiles.get(0)), currentSrcDir.getName());
             if (!parser.isValidHeader()) {
-                System.err.println("WARNING: Metadata header validation warning on file: " + metadataFiles.get(0).getAbsolutePath());
+                logger.warn("Metadata header validation warning on file: {}", metadataFiles.get(0).getAbsolutePath());
             }
         } else {
             if (metadataFiles.size() > 1) {
-                System.err.println("WARNING: Expected exactly 1 metadata file in gallery path: " + currentSrcDir.getAbsolutePath() + " (Found: " + metadataFiles.size() + ")");
+                logger.warn("Expected exactly 1 metadata file in gallery path: {} (Found: {})", currentSrcDir.getAbsolutePath(), metadataFiles.size());
             }
             parser.parse(Optional.empty(), implicitFallbackName);
         }
@@ -239,7 +241,7 @@ public class GalleryProcessor {
         try {
             return Files.readString(additionalFile.toPath(), Charset.forName("windows-1250"));
         } catch (IOException e) {
-            System.err.println("WARNING: Could not parse additional file content: " + e.getMessage());
+            logger.warn("Could not parse additional file content: {}", e.getMessage());
             return null;
         }
     }
@@ -274,7 +276,7 @@ public class GalleryProcessor {
                     if (!config.isCheckOnly()) {
                         synchronized (this) {
                             if (!currentTgtDir.exists() && !currentTgtDir.mkdirs()) {
-                                System.err.println("WARNING: Failed creating structure directory: " + currentTgtDir.getAbsolutePath());
+                                logger.warn("Failed creating structure directory: {}", currentTgtDir.getAbsolutePath());
                                 return;
                             }
                         }
@@ -288,7 +290,7 @@ public class GalleryProcessor {
 
                         synchronized (this) {
                             if (!previewDir.exists() && !previewDir.mkdirs()) {
-                                System.err.println("WARNING: Previews directory creation failed: " + previewDir.getAbsolutePath());
+                                logger.warn("Previews directory creation failed: {}", previewDir.getAbsolutePath());
                             }
                         }
                         File outputFilePreview = new File(previewDir, targetFilename);
@@ -305,17 +307,17 @@ public class GalleryProcessor {
                         imagesWithDesc.add(entry);
                     }
                 } catch (Exception e) {
-                    System.err.println("WARNING: Unexpected processing failure handling image " + img.getAbsolutePath() + ": " + e.getMessage());
+                    logger.warn("Unexpected processing failure handling image {}: {}", img.getAbsolutePath(), e.getMessage());
                 }
             });
         }
         imageExecutor.shutdown();
         try {
             if (!imageExecutor.awaitTermination(1, TimeUnit.HOURS)) {
-                System.err.println("ERROR: Image scaling pool execution timed out before completion.");
+                logger.error("Image scaling pool execution timed out before completion.");
             }
         } catch (InterruptedException e) {
-            System.err.println("ERROR: Multi-threaded operation interrupted: " + e.getMessage());
+            logger.error("Multi-threaded operation interrupted: {}", e.getMessage());
             Thread.currentThread().interrupt();
         }
 
@@ -331,13 +333,13 @@ public class GalleryProcessor {
     private void writeGalleryIndex(File currentTgtDir, MetadataParser parser, String noteContent, List<ImageEntry> combinedImagesList, List<SubdirectoryEntry> subDirectories) {
         if (!config.isCheckOnly()) {
             if (!currentTgtDir.exists() && !currentTgtDir.mkdirs()) {
-                System.err.println("WARNING: Failed creating structure directory for JSON metadata container: " + currentTgtDir.getAbsolutePath());
+                logger.warn("Failed creating structure directory for JSON metadata container: {}", currentTgtDir.getAbsolutePath());
             } else {
                 GalleryIndex galleryIndex = new GalleryIndex(parser.getGalleryName(), parser.getDate(), parser.getEvent(), noteContent, combinedImagesList, subDirectories.isEmpty() ? null : subDirectories);
                 try {
                     jsonMapper.writeValue(new File(currentTgtDir, config.getGalleryJsonName()), galleryIndex);
                 } catch (IOException e) {
-                    System.err.println("WARNING: Failed writing destination index json layout: " + e.getMessage());
+                    logger.warn("Failed writing destination index json layout: {}", e.getMessage());
                 }
             }
         }
@@ -353,7 +355,7 @@ public class GalleryProcessor {
                 }
             }
             if (resolvedLocalPreview == null) {
-                System.err.println(String.format("WARNING: All images in %s match no_comments_files_mask. Using first available image for preview.", currentSrcDir.getName()));
+                logger.warn("All images in {} match no_comments_files_mask. Using first available image for preview.", currentSrcDir.getName());
                 resolvedLocalPreview = combinedImagesList.get(0).preview();
             }
         } else {

@@ -6,6 +6,8 @@ import com.gallery.generator.config.AppConfig;
 import com.gallery.generator.model.RootEntry;
 import com.gallery.generator.util.ContentCleaner;
 import com.gallery.generator.util.GalleryProcessor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -19,6 +21,7 @@ import java.util.List;
  * Performs directory security validations and initiates processing.
  */
 public class Main {
+    private static final Logger logger = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] args) {
         AppConfig config = new AppConfig(args);
@@ -30,7 +33,7 @@ public class Main {
         File targetDir = new File(config.getTargetDir());
 
         if (config.isCheckOnly()) {
-            System.out.println("RUNNING IN CHECK-ONLY MODE. No files or directories will be altered.");
+            logger.info("RUNNING IN CHECK-ONLY MODE. No files or directories will be altered.");
         }
 
         if (!validateDirectories(sourceDir, targetDir)) {
@@ -41,7 +44,7 @@ public class Main {
             if (targetDir.exists()) {
                 ContentCleaner.deleteDirectoryContents(targetDir);
             } else if (!targetDir.mkdirs()) {
-                System.err.println("ERROR: Failed to create target_dir structure.");
+                logger.error("Failed to create target_dir structure.");
                 return;
             }
         }
@@ -56,7 +59,7 @@ public class Main {
             try {
                 mapper.writeValue(rootJsonFile, rootEntries);
             } catch (IOException e) {
-                System.err.println("WARNING: Failed to write root JSON file: " + e.getMessage());
+                logger.warn("Failed to write root JSON file: {}", e.getMessage());
             }
         }
         
@@ -64,7 +67,7 @@ public class Main {
             copyNetlifyToml(targetDir);
         }
         
-        System.out.println("Processing completed successfully.");
+        logger.info("Processing completed successfully.");
     }
 
     private static boolean validateDirectories(File sourceDir, File targetDir) {
@@ -73,20 +76,20 @@ public class Main {
             String targetCanonical = targetDir.getCanonicalPath();
 
             if (sourceCanonical.equals(targetCanonical)) {
-                System.err.println("ERROR: source_dir and target_dir cannot be the same location.");
+                logger.error("source_dir and target_dir cannot be the same location.");
                 return false;
             }
             if (targetCanonical.startsWith(sourceCanonical + File.separator)) {
-                System.err.println("ERROR: target_dir is strictly forbidden from being a subdirectory of source_dir.");
+                logger.error("target_dir is strictly forbidden from being a subdirectory of source_dir.");
                 return false;
             }
         } catch (IOException e) {
-            System.err.println("ERROR: Failed verification of directory security constraints: " + e.getMessage());
+            logger.error("Failed verification of directory security constraints: {}", e.getMessage());
             return false;
         }
 
         if (!sourceDir.exists() || !sourceDir.isDirectory()) {
-            System.err.println("ERROR: source_dir does not exist or is not a directory.");
+            logger.error("source_dir does not exist or is not a directory.");
             return false;
         }
 
@@ -96,14 +99,14 @@ public class Main {
     private static void copyNetlifyToml(File targetDir) {
         try (InputStream input = Main.class.getClassLoader().getResourceAsStream("netlify.toml")) {
             if (input == null) {
-                System.err.println("WARNING: netlify.toml not found in resources, skipping copy");
+                logger.warn("netlify.toml not found in resources, skipping copy");
                 return;
             }
             File netlifyTomlFile = new File(targetDir, "netlify.toml");
             Files.copy(input, netlifyTomlFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            System.out.println("Copied netlify.toml to target directory");
+            logger.info("Copied netlify.toml to target directory");
         } catch (IOException e) {
-            System.err.println("WARNING: Failed to copy netlify.toml: " + e.getMessage());
+            logger.warn("Failed to copy netlify.toml: {}", e.getMessage());
         }
     }
 }
