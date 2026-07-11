@@ -282,10 +282,12 @@ public class GalleryProcessor {
                         }
 
                         File outputFile = new File(currentTgtDir, targetFilename);
-                        if (doNotResizeMask.matches(img.getName())) {
-                            ImageResizer.copyFileAndTransferExif(img, outputFile, config.isCopyExif());
-                        } else {
-                            ImageResizer.resizeImagePct(img, outputFile, config.getTargetImageResolutionPct(), config.isCopyExif(), config.isIncludeWatermark());
+                        if (config.isRegenerateExistingImages() || !outputFile.exists()) {
+                            if (doNotResizeMask.matches(img.getName())) {
+                                ImageResizer.copyFileAndTransferExif(img, outputFile, config.isCopyExif());
+                            } else {
+                                ImageResizer.resizeImagePct(img, outputFile, config.getTargetImageResolutionPct(), config.isCopyExif(), config.isIncludeWatermark());
+                            }
                         }
 
                         synchronized (this) {
@@ -294,7 +296,9 @@ public class GalleryProcessor {
                             }
                         }
                         File outputFilePreview = new File(previewDir, targetFilename);
-                        ImageResizer.resizeToMaxSide(img, outputFilePreview, config.getTargetPreviewMaxSidePx());
+                        if (config.isRegenerateExistingImages() || !outputFilePreview.exists()) {
+                            ImageResizer.resizeToMaxSide(img, outputFilePreview, config.getTargetPreviewMaxSidePx());
+                        }
                     }
 
                     String matchedDescription = lookupDescription(img.getName(), descriptions, matchedIds);

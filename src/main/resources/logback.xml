@@ -1,32 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <!-- Console appender with colored output -->
+    <!-- Console appender: logs INFO and higher due to root logger level -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss} %-4level %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- File appender that writes to the JAR directory -->
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${user.dir}/gallery-generator.log</file>
+    <!-- File appender: filters to log only WARN and higher -->
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>${user.dir}/gallery-generator-errors.log</file>
+        <append>false</append>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>WARN</level>
+        </filter>
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss} %-4level %msg%n</pattern>
         </encoder>
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${user.dir}/gallery-generator.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>10MB</maxFileSize>
-            <maxHistory>30</maxHistory>
-            <totalSizeCap>100MB</totalSizeCap>
-        </rollingPolicy>
     </appender>
 
-    <!-- Root logger level -->
+    <!-- Root logger allows INFO and higher to flow to appenders -->
     <root level="INFO">
         <appender-ref ref="CONSOLE" />
         <appender-ref ref="FILE" />
     </root>
-
-    <!-- Set specific package logging levels -->
-    <logger name="com.gallery.generator" level="INFO"/>
 </configuration>

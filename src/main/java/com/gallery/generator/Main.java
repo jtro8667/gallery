@@ -41,11 +41,18 @@ public class Main {
         }
 
         if (!config.isCheckOnly()) {
-            if (targetDir.exists()) {
-                ContentCleaner.deleteDirectoryContents(targetDir);
-            } else if (!targetDir.mkdirs()) {
-                logger.error("Failed to create target_dir structure.");
-                return;
+            if (config.isRegenerateExistingImages()) {
+                if (targetDir.exists()) {
+                    ContentCleaner.deleteDirectoryContents(targetDir);
+                } else if (!targetDir.mkdirs()) {
+                    logger.error("Failed to create target_dir structure.");
+                    return;
+                }
+            } else {
+                if (!targetDir.exists() && !targetDir.mkdirs()) {
+                    logger.error("Failed to create target_dir structure.");
+                    return;
+                }
             }
         }
 
