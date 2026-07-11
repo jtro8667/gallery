@@ -286,7 +286,12 @@ public class GalleryProcessor {
                             if (doNotResizeMask.matches(img.getName())) {
                                 ImageResizer.copyFileAndTransferExif(img, outputFile, config.isCopyExif());
                             } else {
-                                ImageResizer.resizeImagePct(img, outputFile, config.getTargetImageResolutionPct(), config.isCopyExif(), config.isIncludeWatermark());
+                                Integer maxSize = config.getTargetImageMaxSize();
+                                if (maxSize != null) {
+                                    ImageResizer.resizeToMaxSide(img, outputFile, maxSize, config.isCopyExif(), config.isIncludeWatermark());
+                                } else {
+                                    ImageResizer.resizeImagePct(img, outputFile, config.getTargetImageResolutionPct(), config.isCopyExif(), config.isIncludeWatermark());
+                                }
                             }
                         }
 
@@ -297,7 +302,7 @@ public class GalleryProcessor {
                         }
                         File outputFilePreview = new File(previewDir, targetFilename);
                         if (config.isRegenerateExistingImages() || !outputFilePreview.exists()) {
-                            ImageResizer.resizeToMaxSide(img, outputFilePreview, config.getTargetPreviewMaxSidePx());
+                            ImageResizer.resizeToMaxSide(img, outputFilePreview, config.getTargetPreviewMaxSidePx(), false, false);
                         }
                     }
 

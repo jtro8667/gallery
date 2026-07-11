@@ -40,7 +40,7 @@ public final class ImageResizer {
         renderAndWrite(normalized, targetWidth, targetHeight, inputFile, outputFile, copyExif, includeWatermark);
     }
 
-    public static void resizeToMaxSide(File inputFile, File outputFile, int maxSidePx) throws IOException {
+    public static void resizeToMaxSide(File inputFile, File outputFile, int maxSidePx, boolean copyExif, boolean includeWatermark) throws IOException {
         BufferedImage source = readImage(inputFile);
         int orientation = getExifOrientation(inputFile);
         BufferedImage normalized = applyOrientation(source, orientation);
@@ -61,7 +61,7 @@ public final class ImageResizer {
             }
         }
 
-        renderAndWrite(normalized, targetW, targetH, inputFile, outputFile, false, false);
+        renderAndWrite(normalized, targetW, targetH, inputFile, outputFile, copyExif, includeWatermark);
     }
 
     public static void copyFileAndTransferExif(File inputFile, File outputFile, boolean copyExif) throws IOException {

@@ -14,6 +14,15 @@ public class AppConfig {
     public AppConfig(String[] args) {
         loadConfigurationPipeline();
         parseCommandLineArgs(args);
+        validateImageResizeConfiguration();
+    }
+
+    private void validateImageResizeConfiguration() {
+        String maxSize = properties.getProperty("target_image_max_size");
+        String resolutionPct = properties.getProperty("target_image_resolution_pct");
+        if (maxSize == null && resolutionPct == null) {
+            throw new IllegalStateException("Configuration error: Either target_image_max_size or target_image_resolution_pct must be specified.");
+        }
     }
 
     private void loadConfigurationPipeline() {
@@ -68,7 +77,14 @@ public class AppConfig {
 
     public String getSourceDir() { return properties.getProperty("source_dir"); }
     public String getTargetDir() { return properties.getProperty("target_dir"); }
-    public double getTargetImageResolutionPct() { return Double.parseDouble(properties.getProperty("target_image_resolution_pct")); }
+    public Double getTargetImageResolutionPct() {
+        String value = properties.getProperty("target_image_resolution_pct");
+        return value != null ? Double.parseDouble(value) : null;
+    }
+    public Integer getTargetImageMaxSize() {
+        String value = properties.getProperty("target_image_max_size");
+        return value != null ? Integer.parseInt(value) : null;
+    }
     public int getTargetPreviewMaxSidePx() { return Integer.parseInt(properties.getProperty("target_preview_max_side_px", "400")); }
     public String getTargetPreviewDirName() { return properties.getProperty("target_preview_dir_name"); }
     public String getFilesToProcessMask() { return properties.getProperty("files_to_process_mask"); }

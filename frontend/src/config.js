@@ -30,7 +30,7 @@ export const CONFIG = {
     FOOTER_EMAIL: "josef.troch@email.cz",
 
     // Theme: 'white' or 'dark'
-    THEME: 'white'
+    THEME: 'dark'
 };
 
 /**
