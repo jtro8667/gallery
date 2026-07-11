@@ -17,12 +17,20 @@ export const CONFIG = {
     SUBDIRECTORIES_TITLE: "Galerie",
     EVENT_LABEL: "Akce",
     PAGE_TITLE: "Galerie českých hradů",
+    ROOT_INTRO_TEXT: "Galerie zatím není kompletní - stále ve výstavbě. Fotografie jsou zmenšeniny, v případě zájmu o nezmenšenou verzi bez vodoznaku mne kontaktujte emailem: josef.troch@email.cz",
 
     // Navigation buttons
     BACK_TO_ROOT: "← Zpět na přehled galerií",
     BACK_TO_GALLERY: "← Zpět do galerie",
     PREVIOUS_BUTTON: "Předchozí",
-    NEXT_BUTTON: "Následující"
+    NEXT_BUTTON: "Následující",
+
+    // Footer
+    FOOTER_COPYRIGHT: "© Josef Troch",
+    FOOTER_EMAIL: "josef.troch@email.cz",
+
+    // Theme: 'white' or 'dark'
+    THEME: 'white'
 };
 
 /**

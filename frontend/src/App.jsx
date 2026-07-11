@@ -4,11 +4,15 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import RootView from './components/RootView';
 import GalleryOrPhotoView from './components/GalleryOrPhotoView';
+import { CONFIG } from './config';
 
 function App() {
+    const isDark = CONFIG.THEME === 'dark';
+    const bgClass = isDark ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900';
+
     return (
         <BrowserRouter>
-            <div className="min-h-screen bg-gray-50 text-gray-900 font-sans antialiased">
+            <div className={'min-h-screen font-sans antialiased ' + bgClass}>
                 <Routes>
                     {/* 1. Root page displaying all top-level galleries */}
                     <Route path="/" element={<RootView />} />

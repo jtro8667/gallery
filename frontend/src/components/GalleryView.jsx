@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { CONFIG, resolveDataPath } from '../config';
+import EmailDisplay from './EmailDisplay';
 
 export default function GalleryView() {
     const params = useParams();
@@ -13,10 +14,9 @@ export default function GalleryView() {
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        // Fetch individual index.json inside the configured data folder directory
-        fetch(resolveDataPath(`${galleryPath}/index.json`))
+        fetch(resolveDataPath(galleryPath + '/index.json'))
             .then((res) => {
-                if (!res.ok) throw new Error(`Failed to load index.json for ${galleryPath}`);
+                if (!res.ok) throw new Error('Failed to load index.json for ' + galleryPath);
                 return res.json();
             })
             .then((data) => {
@@ -33,6 +33,9 @@ export default function GalleryView() {
     if (loading) return <div className="text-center p-10 font-semibold">Loading gallery...</div>;
     if (error) return <div className="text-center p-10 text-red-600 font-semibold">Error: {error}</div>;
     if (!gallery) return null;
+
+    const isDark = CONFIG.THEME === 'dark';
+    const bgClass = isDark ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-900';
 
     const images = gallery.images || [];
     const hasSomeDescriptions = images.some(img => img.description && img.description.trim() !== '');
@@ -53,7 +56,7 @@ export default function GalleryView() {
     }
 
     const galleryGridStyle = {
-        gridTemplateColumns: `repeat(${CONFIG.GALLERY_COLUMNS}, minmax(0, 1fr))`
+        gridTemplateColumns: 'repeat(' + CONFIG.GALLERY_COLUMNS + ', minmax(0, 1fr))'
     };
 
     const renderImageGrid = (items) => (
@@ -64,13 +67,12 @@ export default function GalleryView() {
             {items.map((img, idx) => (
                 <Link
                     key={idx}
-                    to={`/gallery/${galleryPath}/${img.image}.htm`}
-                    className="bg-white rounded shadow hover:shadow-md transition-shadow duration-200 flex flex-col"
+                    to={'/gallery/' + galleryPath + '/' + img.image + '.htm'}
+                    className={'rounded shadow hover:shadow-md transition-shadow duration-200 flex flex-col ' + (isDark ? 'bg-gray-800' : 'bg-white')}
                 >
-
-                <div className="w-full aspect-[4/3] bg-gray-100 overflow-hidden flex items-center justify-center">
+                <div className={'w-full aspect-[4/3] overflow-hidden flex items-center justify-center ' + (isDark ? 'bg-gray-700' : 'bg-gray-100')}>
                         <img
-                            src={resolveDataPath(`${galleryPath}/${img.preview}`)}
+                            src={resolveDataPath(galleryPath + '/' + img.preview)}
                             alt={img.description || img.image}
                             className="w-full h-full object-contain"
                             loading="lazy"
@@ -79,7 +81,7 @@ export default function GalleryView() {
 
                     <div className="p-3 flex-grow min-h-[4rem]">
                         {img.description && (
-                            <p className="text-sm text-gray-600 line-clamp-3">{img.description}</p>
+                            <p className={'text-sm line-clamp-3 ' + (isDark ? 'text-gray-300' : 'text-gray-600')}>{img.description}</p>
                         )}
                     </div>
                 </Link>
@@ -88,21 +90,21 @@ export default function GalleryView() {
     );
 
     return (
-        <div className="max-w-7xl mx-auto px-4 py-8">
-            <Link to="/" className="text-blue-600 hover:underline inline-block mb-6 font-medium">
+        <div className={'max-w-7xl mx-auto px-4 py-8 ' + bgClass}>
+            <Link to="/" className={'hover:underline inline-block mb-6 font-medium ' + (isDark ? 'text-blue-400' : 'text-blue-600')}>
                 {CONFIG.BACK_TO_ROOT}
             </Link>
 
-            <header className="mb-10 border-b border-gray-200 pb-6">
+            <header className={'mb-10 border-b pb-6 ' + (isDark ? 'border-gray-700' : 'border-gray-200')}>
                 <div className="flex flex-wrap items-baseline gap-4">
-                    <h1 className="text-3xl font-extrabold text-gray-900">{gallery.name}</h1>
-                    {gallery.date && <span className="text-gray-500 text-lg">({gallery.date})</span>}
+                    <h1 className={'text-3xl font-extrabold ' + (isDark ? 'text-gray-100' : 'text-gray-900')}>{gallery.name}</h1>
+                    {gallery.date && <span className={'text-lg ' + (isDark ? 'text-gray-400' : 'text-gray-500')}>({gallery.date})</span>}
                 </div>
                 {gallery.event && (
-                    <h2 className="text-xl text-gray-600 mt-2 italic">{CONFIG.EVENT_LABEL}: {gallery.event}</h2>
+                    <h2 className={'text-xl mt-2 italic ' + (isDark ? 'text-gray-400' : 'text-gray-600')}>{CONFIG.EVENT_LABEL}: {gallery.event}</h2>
                 )}
                 {gallery.note && (
-                    <p className="mt-4 text-gray-700 bg-gray-100 p-4 rounded border-l-4 border-gray-400 whitespace-pre-line">
+                    <p className={'mt-4 p-4 rounded border-l-4 whitespace-pre-line ' + (isDark ? 'text-gray-300 bg-gray-800 border-gray-600' : 'text-gray-700 bg-gray-100 border-gray-400')}>
                         {gallery.note}
                     </p>
                 )}
@@ -111,7 +113,7 @@ export default function GalleryView() {
             <main>
                 {unlabelledImages.length > 0 && (
                     <div>
-                        <h3 className="text-xl font-bold text-gray-800 mb-4">{CONFIG.UNLABELLED_BLOCK_TITLE}</h3>
+                        <h3 className={'text-xl font-bold mb-4 ' + (isDark ? 'text-gray-100' : 'text-gray-800')}>{CONFIG.UNLABELLED_BLOCK_TITLE}</h3>
                         {renderImageGrid(unlabelledImages)}
                     </div>
                 )}
@@ -119,40 +121,40 @@ export default function GalleryView() {
                 {labelledImages.length > 0 && (
                     <div>
                         {unlabelledImages.length > 0 && (
-                            <h3 className="text-xl font-bold text-gray-800 mb-4">{CONFIG.LABELLED_BLOCK_TITLE}</h3>
+                            <h3 className={'text-xl font-bold mb-4 ' + (isDark ? 'text-gray-100' : 'text-gray-800')}>{CONFIG.LABELLED_BLOCK_TITLE}</h3>
                         )}
                         {renderImageGrid(labelledImages)}
                     </div>
                 )}
 
                 {gallery.subdirectories && gallery.subdirectories.length > 0 && (
-                    <section className="mt-16 border-t border-gray-200 pt-8">
-                        <h3 className="text-xl font-bold text-gray-800 mb-4">{CONFIG.SUBDIRECTORIES_TITLE}</h3>
+                    <section className={'mt-16 border-t pt-8 ' + (isDark ? 'border-gray-700' : 'border-gray-200')}>
+                        <h3 className={'text-xl font-bold mb-4 ' + (isDark ? 'text-gray-100' : 'text-gray-800')}>{CONFIG.SUBDIRECTORIES_TITLE}</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                             {gallery.subdirectories.map((subdir, index) => (
                                 <Link
                                     key={index}
-                                    to={`/gallery/${galleryPath}/${subdir.directory}`}
-                                    className="group bg-white rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col"
+                                    to={'/gallery/' + galleryPath + '/' + subdir.directory}
+                                    className={'group rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col ' + (isDark ? 'bg-gray-800' : 'bg-white')}
                                 >
-                                    <div className="w-full aspect-[4/3] bg-gray-200 overflow-hidden">
+                                    <div className={'w-full aspect-[4/3] overflow-hidden ' + (isDark ? 'bg-gray-700' : 'bg-gray-200')}>
                                         {subdir.preview_path ? (
                                             <img
-                                                src={resolveDataPath(`${galleryPath}/${subdir.directory}/${subdir.preview_path}`)}
+                                                src={resolveDataPath(galleryPath + '/' + subdir.directory + '/' + subdir.preview_path)}
                                                 alt={subdir.directory}
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                                 loading="lazy"
                                             />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">
-                                                <svg className="w-16 h-16 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                                <svg className={'w-16 h-16 ' + (isDark ? 'text-gray-500' : 'text-gray-400')} fill="currentColor" viewBox="0 0 20 20">
                                                     <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
                                                 </svg>
                                             </div>
                                         )}
                                     </div>
                                     <div className="p-4">
-                                        <span className="font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
+                                        <span className={'font-bold group-hover:text-blue-600 transition-colors ' + (isDark ? 'text-gray-100' : 'text-gray-800')}>
                                             {subdir.directory}
                                         </span>
                                     </div>
@@ -162,6 +164,11 @@ export default function GalleryView() {
                     </section>
                 )}
             </main>
+
+            <footer className={'mt-10 text-center text-sm ' + (isDark ? 'text-gray-400' : 'text-gray-600')}>
+                <p>{CONFIG.FOOTER_COPYRIGHT}</p>
+                <p><EmailDisplay email={CONFIG.FOOTER_EMAIL} /></p>
+            </footer>
         </div>
     );
 }

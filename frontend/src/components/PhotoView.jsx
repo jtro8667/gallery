@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { CONFIG, resolveDataPath } from '../config';
+import EmailDisplay from './EmailDisplay';
 
 export default function PhotoView({ galleryPath: propGalleryPath, imageName: propImageName }) {
     const params = useParams();
@@ -79,17 +80,19 @@ export default function PhotoView({ galleryPath: propGalleryPath, imageName: pro
     }
 
     const currentImageData = images[currentIndex];
+    const isDark = CONFIG.THEME === 'dark';
+    const bgClass = isDark ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-900';
 
     return (
-        <div className="min-h-screen flex flex-col bg-gray-900 text-gray-100 px-4 py-6 select-none">
+        <div className={`min-h-screen flex flex-col px-4 py-6 select-none ${bgClass}`}>
             <header className="max-w-7xl w-full mx-auto mb-4 flex justify-between items-center">
                 <Link
                     to={`/gallery/${galleryPath}`}
-                    className="text-gray-400 hover:text-white transition-colors font-medium"
+                    className={`hover:transition-colors font-medium ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
                 >
                     {CONFIG.BACK_TO_GALLERY}
                 </Link>
-                <div className="text-sm text-gray-400 font-mono">
+                <div className={`text-sm font-mono ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     {currentIndex + 1} / {images.length}
                 </div>
             </header>
@@ -97,9 +100,9 @@ export default function PhotoView({ galleryPath: propGalleryPath, imageName: pro
             <main className="flex-grow flex flex-col items-center justify-center max-w-7xl w-full mx-auto relative gap-4 my-auto">
                 {gallery && (
                     <div className="text-center mb-4">
-                        <h1 className="text-2xl font-bold text-gray-100">{gallery.name}</h1>
-                        {gallery.date && <p className="text-gray-400 text-sm">{gallery.date}</p>}
-                        {gallery.event && <p className="text-gray-400 text-sm italic">{CONFIG.EVENT_LABEL}: {gallery.event}</p>}
+                        <h1 className={`text-2xl font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>{gallery.name}</h1>
+                        {gallery.date && <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{gallery.date}</p>}
+                        {gallery.event && <p className={`text-sm italic ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{CONFIG.EVENT_LABEL}: {gallery.event}</p>}
                     </div>
                 )}
 
@@ -107,7 +110,11 @@ export default function PhotoView({ galleryPath: propGalleryPath, imageName: pro
                     <button
                         onClick={handlePrevious}
                         disabled={!hasPrevious}
-                        className={`p-3 rounded-full bg-gray-800 hover:bg-gray-700 text-white transition-all focus:outline-none flex-shrink-0 z-10 ${
+                        className={`p-3 rounded-full transition-all focus:outline-none flex-shrink-0 z-10 ${
+                            isDark
+                                ? 'bg-gray-800 hover:bg-gray-700 text-white'
+                                : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                        } ${
                             !hasPrevious ? 'opacity-20 cursor-not-allowed' : 'opacity-80 hover:opacity-100'
                         }`}
                         aria-label={CONFIG.PREVIOUS_BUTTON}
@@ -134,7 +141,11 @@ export default function PhotoView({ galleryPath: propGalleryPath, imageName: pro
                     <button
                         onClick={handleNext}
                         disabled={!hasNext}
-                        className={`p-3 rounded-full bg-gray-800 hover:bg-gray-700 text-white transition-all focus:outline-none flex-shrink-0 z-10 ${
+                        className={`p-3 rounded-full transition-all focus:outline-none flex-shrink-0 z-10 ${
+                            isDark
+                                ? 'bg-gray-800 hover:bg-gray-700 text-white'
+                                : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                        } ${
                             !hasNext ? 'opacity-20 cursor-not-allowed' : 'opacity-80 hover:opacity-100'
                         }`}
                         aria-label={CONFIG.NEXT_BUTTON}
@@ -146,19 +157,28 @@ export default function PhotoView({ galleryPath: propGalleryPath, imageName: pro
                 </div>
             </main>
 
-            <footer className="max-w-4xl w-full mx-auto mt-6 bg-gray-800 rounded-lg p-5 border border-gray-700 shadow-md">
+            <footer className={`max-w-4xl w-full mx-auto mt-6 rounded-lg p-5 border shadow-md ${
+                isDark
+                    ? 'bg-gray-800 border-gray-700'
+                    : 'bg-gray-100 border-gray-300'
+            }`}>
                 {currentImageData.description ? (
-                    <h2 className="text-lg md:text-xl font-medium text-gray-100 mb-3">
+                    <h2 className={`text-lg md:text-xl font-medium mb-3 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
                         {currentImageData.description}
                     </h2>
                 ) : (
-                    <p className="text-gray-500 italic mb-2">Bez popisku</p>
+                    <p className={`italic mb-2 ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>Bez popisku</p>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 text-xs font-mono text-gray-400 gap-2 border-t border-gray-700 pt-3">
-                    <div><span className="text-gray-500">File:</span> {currentImageData.image}</div>
+                <div className={`grid grid-cols-1 sm:grid-cols-2 text-xs font-mono gap-2 border-t pt-3 ${isDark ? 'text-gray-400 border-gray-700' : 'text-gray-600 border-gray-300'}`}>
+                    <div><span className={isDark ? 'text-gray-500' : 'text-gray-600'}>File:</span> {currentImageData.image}</div>
                     {/* Removed Path display */}
                 </div>
+            </footer>
+
+            <footer className={`max-w-7xl w-full mx-auto mt-6 text-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p>{CONFIG.FOOTER_COPYRIGHT}</p>
+                <p><EmailDisplay email={CONFIG.FOOTER_EMAIL} /></p>
             </footer>
         </div>
     );
