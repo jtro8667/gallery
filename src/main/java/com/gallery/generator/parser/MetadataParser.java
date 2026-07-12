@@ -1,5 +1,8 @@
 package com.gallery.generator.parser;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -14,6 +17,7 @@ import java.util.Optional;
  * Header parsing is performed strictly using string manipulation functions.
  */
 public class MetadataParser {
+    private static final Logger logger = LoggerFactory.getLogger(MetadataParser.class);
     private String galleryName;
     private String date;
     private String event;
@@ -35,7 +39,7 @@ public class MetadataParser {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), windows1250))) {
             String header = reader.readLine();
             if (header == null || header.isBlank()) {
-                System.err.println("WARNING: Metadata file is empty: " + file.getAbsolutePath());
+                logger.warn("Metadata file is empty: {}", file.getAbsolutePath());
                 this.galleryName = fallbackName;
                 this.validHeader = false;
                 return;
@@ -44,8 +48,12 @@ public class MetadataParser {
             parseHeaderStrictly(header, fallbackName, file.getAbsolutePath());
 
             String line;
+            int lineNo = 1; // Start at 2 since line 1 is the header
             while ((line = reader.readLine()) != null) {
-                if (line.isBlank()) continue;
+                if (line.isBlank()) {
+                    lineNo++;
+                    continue;
+                }
 
                 String trimmedLine = line.stripLeading();
                 int firstSpaceIndex = -1;
@@ -57,7 +65,8 @@ public class MetadataParser {
                 }
 
                 if (firstSpaceIndex == -1) {
-                    System.err.println("WARNING: Unexpected line format in metadata file (no description): " + line + " in " + file.getAbsolutePath());
+                    logger.warn("Unexpected line format in metadata file (no description) at line {} file {}: {}", lineNo+1, file.getAbsolutePath(), line);
+                    lineNo++;
                     continue;
                 }
 
@@ -68,18 +77,20 @@ public class MetadataParser {
                 id = id.replaceAll("[\\r\\n\\t\\u00A0]", "").trim();
 
                 if (id.isEmpty() || description.isEmpty()) {
-                    System.err.println("WARNING: Invalid row elements found in line: " + line + " in " + file.getAbsolutePath());
+                    logger.warn("Invalid row elements found in line {} file {}: {}", lineNo+1, file.getAbsolutePath(), line);
+                    lineNo++;
                     continue;
                 }
 
                 // Store inside the index map using full lowercase as per architecture requirements
                 imageDescriptions.put(id.toLowerCase(), description);
                 hasDescriptions = true;
+                lineNo++;
             }
 
 
         } catch (Exception e) {
-            System.err.println("WARNING: Error reading metadata file " + file.getAbsolutePath() + ": " + e.getMessage());
+            logger.warn("Error reading metadata file {}: {}", file.getAbsolutePath(), e.getMessage());
             this.galleryName = fallbackName;
             this.validHeader = false;
         }
@@ -115,17 +126,17 @@ public class MetadataParser {
             if (openBracket != -1 && closeBracket != -1 && openBracket < closeBracket) {
                 this.event = workingHeader.substring(openBracket + 1, closeBracket).trim();
             } else if (openBracket != -1 || closeBracket != -1) {
-                System.err.println("WARNING: Malformed bracket structure in header: \"" + header + "\" in " + filePath);
+                logger.warn("Malformed bracket structure in header: \"{}\" in {}", header, filePath);
                 this.validHeader = false;
             }
 
             if (this.galleryName.isEmpty()) {
-                System.err.println("WARNING: Mandatory gallery name is empty in header: \"" + header + "\" in " + filePath);
+                logger.warn("Mandatory gallery name is empty in header: \"{}\" in {}", header, filePath);
                 this.galleryName = fallbackName;
                 this.validHeader = false;
             }
         } catch (Exception e) {
-            System.err.println("WARNING: Header parsing failed for: \"" + header + "\". Using fallback. File: " + filePath);
+            logger.warn("Header parsing failed for: \"{}\". Using fallback. File: {}", header, filePath);
             this.galleryName = fallbackName;
             this.validHeader = false;
         }

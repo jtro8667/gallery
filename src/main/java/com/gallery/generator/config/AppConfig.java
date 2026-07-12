@@ -1,5 +1,8 @@
 package com.gallery.generator.config;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -8,6 +11,7 @@ import java.net.URISyntaxException;
 import java.util.Properties;
 
 public class AppConfig {
+    private static final Logger logger = LoggerFactory.getLogger(AppConfig.class);
     private static final String PROPERTIES_FILENAME = "gallery-generator.properties";
     private final Properties properties = new Properties();
 
@@ -30,22 +34,22 @@ public class AppConfig {
         if (externalConfigFile != null && externalConfigFile.exists() && externalConfigFile.isFile()) {
             try (InputStream input = new FileInputStream(externalConfigFile)) {
                 properties.load(input);
-                System.out.println("Loaded external configuration from: " + externalConfigFile.getAbsolutePath());
+                logger.info("Loaded external configuration from: {}", externalConfigFile.getAbsolutePath());
                 return;
             } catch (IOException e) {
-                System.err.println("WARNING: Error reading external configuration file, falling back to classpath: " + e.getMessage());
+                logger.warn("Error reading external configuration file, falling back to classpath: {}", e.getMessage());
             }
         }
 
         try (InputStream input = getClass().getClassLoader().getResourceAsStream(PROPERTIES_FILENAME)) {
             if (input == null) {
-                System.err.println("WARNING: Unable to find " + PROPERTIES_FILENAME + " inside JAR resources. Using code defaults.");
+                logger.warn("Unable to find {} inside JAR resources. Using code defaults.", PROPERTIES_FILENAME);
                 return;
             }
             properties.load(input);
-            System.out.println("Loaded default internal configuration from JAR resources.");
+            logger.info("Loaded default internal configuration from JAR resources.");
         } catch (IOException e) {
-            System.err.println("WARNING: Error loading internal resource config: " + e.getMessage());
+            logger.warn("Error loading internal resource config: {}", e.getMessage());
         }
     }
 
@@ -57,7 +61,7 @@ public class AppConfig {
                 return new File(jarDirectory, PROPERTIES_FILENAME);
             }
         } catch (URISyntaxException | SecurityException e) {
-            System.err.println("WARNING: Could not determine JAR execution directory environment: " + e.getMessage());
+            logger.warn("Could not determine JAR execution directory environment: {}", e.getMessage());
         }
         return null;
     }
@@ -70,7 +74,7 @@ public class AppConfig {
                 String value = arg.substring(equalsIndex + 1).trim();
                 properties.setProperty(key, value);
             } else {
-                System.err.println("WARNING: Invalid command line argument format: " + arg);
+                logger.warn("Invalid command line argument format: {}", arg);
             }
         }
     }
@@ -103,4 +107,5 @@ public class AppConfig {
     public boolean isIncludeWatermark() { return Boolean.parseBoolean(properties.getProperty("includeWatermark", "false")); }
     public boolean isRegenerateExistingImages() { return Boolean.parseBoolean(properties.getProperty("regenerateExistingImages", "true")); }
     public String getLocale() { return properties.getProperty("locale", "en"); }
+    public boolean isTreatSubDirsAsDates() { return Boolean.parseBoolean(properties.getProperty("treatSubDirsAsDates", "false")); }
 }

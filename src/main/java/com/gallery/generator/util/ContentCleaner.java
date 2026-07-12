@@ -1,11 +1,15 @@
 package com.gallery.generator.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 
 /**
  * Handles the secure deletion of target directory contents.
  */
 public class ContentCleaner {
+    private static final Logger logger = LoggerFactory.getLogger(ContentCleaner.class);
 
     public static void deleteDirectoryContents(File dir) {
         File[] files = dir.listFiles();
@@ -17,7 +21,7 @@ public class ContentCleaner {
                 deleteDirectoryContents(f);
             }
             if (!f.delete()) {
-                System.err.println("WARNING: Could not securely purge file location target: " + f.getAbsolutePath());
+                logger.warn("Could not securely purge file location target: {}", f.getAbsolutePath());
             }
         }
     }

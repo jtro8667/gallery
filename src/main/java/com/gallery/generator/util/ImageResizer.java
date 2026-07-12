@@ -8,6 +8,8 @@ import org.apache.commons.imaging.formats.jpeg.exif.ExifRewriter;
 import org.apache.commons.imaging.formats.tiff.TiffImageMetadata;
 import org.apache.commons.imaging.formats.tiff.constants.TiffTagConstants;
 import org.apache.commons.imaging.formats.tiff.write.TiffOutputSet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
 import java.awt.AlphaComposite;
@@ -21,10 +23,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.HashMap;
-import java.util.Map;
 
 public final class ImageResizer {
+    private static final Logger logger = LoggerFactory.getLogger(ImageResizer.class);
+
     private ImageResizer() {
     }
 
@@ -270,9 +272,6 @@ public final class ImageResizer {
 
     private static void drawWatermark(Graphics2D g, int width, int height) throws IOException {
         BufferedImage watermark = loadWatermarkFromResources();
-        if (watermark == null) {
-            return;
-        }
 
         int padding = 10;
         int watermarkWidth = Math.min(width / (width > height ? 4 : 3), watermark.getWidth());
@@ -290,8 +289,8 @@ public final class ImageResizer {
     private static BufferedImage loadWatermarkFromResources() throws IOException {
         try (var input = ImageResizer.class.getClassLoader().getResourceAsStream("watermark.png")) {
             if (input == null) {
-                System.err.println("WARNING: watermark.png not found in resources");
-                return null;
+                logger.error("watermark.png not found in resources");
+                throw new IOException("watermark.png not found in resources");
             }
             return ImageIO.read(input);
         }

@@ -77,32 +77,32 @@ public class GalleryProcessor {
         DirectoryContents contents = scanDirectoryContents(allFiles);
 
         // Bottom-up recursion step: resolve all child branches first to inherit their results
-        List<DirectoryResult> activeChildResults = new ArrayList<>();
+        List<DirectoryResult> activeSubDirs = new ArrayList<>();
         for (File subDir : contents.subDirectories) {
             DirectoryResult childRes = processDirectory(subDir, rootDirSrc, baseTgtDir);
             if (childRes != null && childRes.hasContent()) {
-                activeChildResults.add(childRes);
+                activeSubDirs.add(childRes);
             }
         }
 
         boolean isRootBaseDirectory = currentSrcDir.equals(rootDirSrc);
         boolean hasLocalContent = !contents.imageFiles().isEmpty() || !contents.metadataFiles().isEmpty();
-        boolean hasActiveBranchTree = hasLocalContent || !activeChildResults.isEmpty();
+        boolean hasActiveBranchTree = hasLocalContent || !activeSubDirs.isEmpty();
 
         // Enforce boundary constraint: skip local structural mapping execution routines for root directory path
         if (isRootBaseDirectory || !hasActiveBranchTree) {
-            return new DirectoryResult(null, null, currentSrcDir.getName(), config.getGalleryJsonName(), null, hasActiveBranchTree, activeChildResults);
+            return new DirectoryResult(null, null, currentSrcDir.getName(), config.getGalleryJsonName(), null, hasActiveBranchTree, activeSubDirs);
         }
 
         String relativePath = rootDirSrc.toURI().relativize(currentSrcDir.toURI()).getPath();
         File currentTgtDir = new File(baseTgtDir, relativePath);
 
         logProgress(String.format("Processing directory %s: %d images found, %d active child branches.",
-                currentSrcDir.getName(), contents.imageFiles().size(), activeChildResults.size()));
+                currentSrcDir.getName(), contents.imageFiles().size(), activeSubDirs.size()));
 
         // Resolve Fallback Names from child metadata tokens without running disk I/O routines again
         String implicitFallbackName = null;
-        for (DirectoryResult child : activeChildResults) {
+        for (DirectoryResult child : activeSubDirs) {
             if (child.galleryName() != null && !child.galleryName().isBlank()) {
                 implicitFallbackName = child.galleryName();
                 break;
@@ -121,17 +121,22 @@ public class GalleryProcessor {
 
         List<ImageEntry> combinedImagesList = imageResult.combinedImages();
         List<SubdirectoryEntry> structuredChildren = new ArrayList<>();
-        for (DirectoryResult child : activeChildResults) {
+        for (DirectoryResult child : activeSubDirs) {
             structuredChildren.add(new SubdirectoryEntry(child.directoryName(), child.galleryJsonName(), child.previewPath()));
         }
         writeGalleryIndex(currentTgtDir, parser, noteContent, combinedImagesList, structuredChildren);
 
-        String resolvedLocalPreview = resolvePreviewPath(combinedImagesList, activeChildResults, currentSrcDir);
-        DirectoryResult currentDirInfo = new DirectoryResult(parser.getGalleryName(), parser.getDate(), currentSrcDir.getName(), config.getGalleryJsonName(), resolvedLocalPreview, true, activeChildResults);
+        String resolvedLocalPreview = resolvePreviewPath(combinedImagesList, activeSubDirs, currentSrcDir);
+
+        DirectoryResult currentDirInfo = new DirectoryResult(parser.getGalleryName(), parser.getDate(), currentSrcDir.getName(), config.getGalleryJsonName(), resolvedLocalPreview, true, activeSubDirs);
 
         if (currentSrcDir.getParentFile().equals(rootDirSrc)) {
             String trackingPreview = currentDirInfo.previewPath() != null ? currentSrcDir.getName() + "/" + currentDirInfo.previewPath() : null;
-            rootEntries.add(new RootEntry(currentDirInfo.galleryName(), currentDirInfo.date(), currentSrcDir.getName(), config.getGalleryJsonName(), trackingPreview));
+            String dateForRoot = currentDirInfo.date();
+            if (config.isTreatSubDirsAsDates() && (dateForRoot == null || dateForRoot.isBlank()))
+                dateForRoot = buildArtificalDateFromSubDirs(activeSubDirs);
+
+            rootEntries.add(new RootEntry(currentDirInfo.galleryName(), dateForRoot, currentSrcDir.getName(), config.getGalleryJsonName(), trackingPreview));
         }
         return currentDirInfo;
     }
@@ -357,7 +362,7 @@ public class GalleryProcessor {
         }
     }
 
-    private String resolvePreviewPath(List<ImageEntry> combinedImagesList, List<DirectoryResult> activeChildResults, File currentSrcDir) {
+    private String resolvePreviewPath(List<ImageEntry> combinedImagesList, List<DirectoryResult> activeSubDirs, File currentSrcDir) {
         String resolvedLocalPreview = null;
         if (!combinedImagesList.isEmpty()) {
             for (ImageEntry entry : combinedImagesList) {
@@ -371,7 +376,7 @@ public class GalleryProcessor {
                 resolvedLocalPreview = combinedImagesList.get(0).preview();
             }
         } else {
-            for (DirectoryResult child : activeChildResults) {
+            for (DirectoryResult child : activeSubDirs) {
                 if (child.previewPath() != null) {
                     resolvedLocalPreview = child.directoryName() + "/" + child.previewPath();
                     break;
@@ -379,6 +384,18 @@ public class GalleryProcessor {
             }
         }
         return resolvedLocalPreview;
+    }
+
+    private String buildArtificalDateFromSubDirs(List<DirectoryResult> activeSubDirs) {
+        if (activeSubDirs == null || activeSubDirs.isEmpty()) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < activeSubDirs.size(); i++) {
+            if (i > 0) sb.append(" / ");
+            sb.append(activeSubDirs.get(i).directoryName());
+        }
+        return sb.toString();
     }
 
     private record DirectoryContents(List<File> imageFiles, List<File> metadataFiles, File additionalFile, List<File> subDirectories) {}
