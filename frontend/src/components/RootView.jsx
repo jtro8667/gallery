@@ -1,20 +1,64 @@
 // src/components/RootView.jsx
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { CONFIG, resolveDataPath } from '../config';
 import TextWithEmails from './TextWithEmails';
 import EmailDisplay from './EmailDisplay';
 
+// Helper function to measure text width in pixels using a 2D Canvas
+const measureTextWidth = (text, fontStyle) => {
+    const canvas = measureTextWidth.canvas || (measureTextWidth.canvas = document.createElement('canvas'));
+    const context = canvas.getContext('2d');
+    context.font = fontStyle;
+    return context.measureText(text).width;
+};
+
+// Word-boundary pixel-based truncation engine
+const truncateDateToWidth = (dateStr, maxWidth, fontStyle) => {
+    if (!dateStr) return '';
+
+    // Check if the full text fits immediately
+    if (measureTextWidth(dateStr, fontStyle) <= maxWidth) {
+        return dateStr;
+    }
+
+    const suffix = " ...";
+    const words = dateStr.split(/(\s+)/); // Keep spaces as tokens to protect word structures
+    let currentText = '';
+    let result = suffix;
+
+    for (let i = 0; i < words.length; i++) {
+        // Skip leading whitespace tokens
+        if (i === 0 && words[i].trim() === '') continue;
+
+        const nextChunk = currentText + words[i];
+        // Clean up trailing spaces/slashes for testing the width accurately
+        const cleanedChunk = nextChunk.replace(/[ /]+$/, '');
+        const testText = cleanedChunk + suffix;
+
+        if (measureTextWidth(testText, fontStyle) > maxWidth) {
+            break;
+        }
+
+        currentText = nextChunk;
+        result = cleanedChunk + suffix;
+    }
+
+    return result;
+};
+
 export default function RootView() {
     const [galleries, setGalleries] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [containerWidths, setContainerWidths] = useState({});
+
     const letterRefs = useRef({});
+    const gridContainerRef = useRef(null);
 
     useEffect(() => {
         document.title = CONFIG.PAGE_TITLE;
-        // Dynamically resolves path based on config, e.g., /data/root.json
         fetch(resolveDataPath('root.json'))
             .then((res) => {
                 if (!res.ok) throw new Error('Failed to load root.json');
@@ -30,6 +74,36 @@ export default function RootView() {
             });
     }, []);
 
+    // Monitor container sizes whenever galleries load, windows resize, or layout recalculates
+    useLayoutEffect(() => {
+        if (loading || !gridContainerRef.current) return;
+
+        const handleResize = () => {
+            const gridItems = gridContainerRef.current.children;
+            const widths = {};
+
+            // Calculate available width inside card minus padding
+            // Tailwinds px-4 padding = 16px left + 16px right = 32px
+            for (let i = 0; i < gridItems.length; i++) {
+                const card = gridItems[i];
+                if (card) {
+                    const cardWidth = card.getBoundingClientRect().width;
+                    widths[i] = Math.max(0, cardWidth - 32);
+                }
+            }
+            setContainerWidths(widths);
+        };
+
+        // Create ResizeObserver to keep widths perfectly in sync
+        const resizeObserver = new ResizeObserver(handleResize);
+        resizeObserver.observe(gridContainerRef.current);
+
+        // Initial measurement
+        handleResize();
+
+        return () => resizeObserver.disconnect();
+    }, [loading, galleries]);
+
     if (loading) return <div className="text-center p-10 font-semibold">Loading galleries...</div>;
     if (error) return <div className="text-center p-10 text-red-600 font-semibold">Error: {error}</div>;
 
@@ -40,23 +114,16 @@ export default function RootView() {
     const isDark = CONFIG.THEME === 'dark';
     const bgClass = isDark ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-900';
 
-    // Helper to extract the starting letter respecting the Czech "CH" digraph
     const getCzechStartingLetter = (name) => {
         if (!name) return '';
         const upperName = name.trim().toUpperCase();
-        if (upperName.startsWith('CH')) {
-            return 'CH';
-        }
+        if (upperName.startsWith('CH')) return 'CH';
         return upperName.charAt(0);
     };
 
-    // Extract unique starting letters
     const rawLetters = [...new Set(galleries.map(g => getCzechStartingLetter(g.name)))].filter(Boolean);
-
-    // Sort letters using the Czech locale rule (places CH correctly between H and I)
     const alphabet = rawLetters.sort((a, b) => a.localeCompare(b, 'cs', { sensitivity: 'base' }));
 
-    // Map to find the first gallery index for each starting letter
     const letterToFirstIndexMap = {};
     galleries.forEach((gallery, index) => {
         const letter = getCzechStartingLetter(gallery.name);
@@ -68,17 +135,14 @@ export default function RootView() {
     const scrollToLetter = (letter) => {
         const element = letterRefs.current[letter];
         if (element) {
-            // Native scrollIntoView doesn't accept a custom pixel offset,
-            // so we calculate the absolute position and subtract 20px for padding.
             const elementPosition = element.getBoundingClientRect().top + window.scrollY;
             const offsetPosition = elementPosition - 20;
-
-            window.scrollTo({
-                top: offsetPosition,
-                behavior: 'smooth'
-            });
+            window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
         }
     };
+
+    // Target typography layout to measure exact font pixels (Tailwind text-xs = 12px)
+    const dateFontStyle = '12px sans-serif';
 
     return (
         <div className={`max-w-7xl mx-auto px-4 py-8 ${bgClass}`}>
@@ -90,7 +154,6 @@ export default function RootView() {
                     <TextWithEmails text={CONFIG.ROOT_INTRO_TEXT} />
                 </div>
 
-                {/* Alphabet navigation menu */}
                 {alphabet.length > 0 && (
                     <div className="mt-6 flex flex-wrap justify-center gap-2 max-w-2xl mx-auto">
                         {alphabet.map((letter) => (
@@ -98,9 +161,7 @@ export default function RootView() {
                                 key={letter}
                                 onClick={() => scrollToLetter(letter)}
                                 className={`px-3 py-1 text-sm font-semibold rounded shadow-sm hover:scale-105 transition-transform duration-200 ${
-                                    isDark
-                                        ? 'bg-gray-800 hover:bg-gray-700 text-blue-400 border border-gray-700'
-                                        : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200'
+                                    isDark ? 'bg-gray-800 hover:bg-gray-700 text-blue-400 border border-gray-700' : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200'
                                 }`}
                             >
                                 {letter}
@@ -112,12 +173,16 @@ export default function RootView() {
 
             <main>
                 <div
+                    ref={gridContainerRef}
                     className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
                     style={window.innerWidth >= 1024 ? gridStyle : undefined}
                 >
                     {galleries.map((gallery, index) => {
                         const letter = getCzechStartingLetter(gallery.name);
                         const isFirstOfLetter = letterToFirstIndexMap[letter] === index;
+
+                        const availableWidth = containerWidths[index] || 200; // Fallback estimate before observer renders
+                        const displayDate = truncateDateToWidth(gallery.date, availableWidth, dateFontStyle);
 
                         return (
                             <Link
@@ -140,7 +205,12 @@ export default function RootView() {
                                         {gallery.name}
                                     </h2>
                                     {gallery.date && (
-                                        <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{gallery.date}</p>
+                                        <p
+                                            title={gallery.date} // Full date visible natively on hover
+                                            className={`text-xs mt-1 truncate-render ${isDark ? 'text-gray-400' : 'text-gray-500'}`}
+                                        >
+                                            {displayDate}
+                                        </p>
                                     )}
                                 </div>
                             </Link>
@@ -148,7 +218,6 @@ export default function RootView() {
                     })}
                 </div>
             </main>
-
             <footer className={`mt-10 text-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                 <p>{CONFIG.FOOTER_COPYRIGHT}</p>
                 <p><EmailDisplay email={CONFIG.FOOTER_EMAIL} /></p>
