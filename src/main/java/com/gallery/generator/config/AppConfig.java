@@ -102,4 +102,5 @@ public class AppConfig {
     public boolean isCopyExif() { return Boolean.parseBoolean(properties.getProperty("copy_exif", "true")); }
     public boolean isIncludeWatermark() { return Boolean.parseBoolean(properties.getProperty("includeWatermark", "false")); }
     public boolean isRegenerateExistingImages() { return Boolean.parseBoolean(properties.getProperty("regenerateExistingImages", "true")); }
+    public String getLocale() { return properties.getProperty("locale", "en"); }
 }

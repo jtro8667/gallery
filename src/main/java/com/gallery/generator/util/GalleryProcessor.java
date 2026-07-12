@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
+import java.text.Collator;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -35,6 +36,7 @@ public class GalleryProcessor {
     private final MaskMatcher additionalMask;
     private final MaskMatcher noCommentMask;
     private final MaskMatcher doNotResizeMask;
+    private final Collator collator;
 
     public GalleryProcessor(AppConfig config, ObjectMapper jsonMapper) {
         this.config = config;
@@ -45,11 +47,12 @@ public class GalleryProcessor {
         this.additionalMask = new MaskMatcher(config.getAdditionalFileMask());
         this.noCommentMask = new MaskMatcher(config.getNoCommentsFilesMask());
         this.doNotResizeMask = new MaskMatcher(config.getDoNotResizeFilesMask());
+        this.collator = Collator.getInstance(Locale.forLanguageTag(config.getLocale()));
     }
 
     public List<RootEntry> getRootEntries() {
         List<RootEntry> sorted = new ArrayList<>(rootEntries);
-        sorted.sort(Comparator.comparing(RootEntry::directory));
+        sorted.sort(Comparator.comparing(RootEntry::directory, collator));
         return sorted;
     }
 
@@ -216,7 +219,7 @@ public class GalleryProcessor {
                 }
             }
         }
-        rawSubDirectories.sort(Comparator.comparing(File::getName));
+        rawSubDirectories.sort(Comparator.comparing(File::getName, collator));
         return new DirectoryContents(imageFiles, metadataFiles, additionalFile, rawSubDirectories);
     }
 
@@ -330,8 +333,8 @@ public class GalleryProcessor {
             Thread.currentThread().interrupt();
         }
 
-        imagesWithoutDesc.sort(Comparator.comparing(ImageEntry::image));
-        imagesWithDesc.sort(Comparator.comparing(ImageEntry::image));
+        imagesWithoutDesc.sort(Comparator.comparing(ImageEntry::image, collator));
+        imagesWithDesc.sort(Comparator.comparing(ImageEntry::image, collator));
         List<ImageEntry> combinedImagesList = new ArrayList<>();
         combinedImagesList.addAll(imagesWithoutDesc);
         combinedImagesList.addAll(imagesWithDesc);

@@ -85,26 +85,38 @@ public class MetadataParser {
         }
     }
 
-    private void parseHeaderStrictly(String header, String fallbackName, String filePath) {
+    void parseHeaderStrictly(String header, String fallbackName, String filePath) {
         try {
             String workingHeader = header.trim();
 
+            int commaIndex = workingHeader.indexOf(',');
             int openBracket = workingHeader.indexOf('(');
+
+            int bracketCount = 0;
+            int pos;
+            for (pos = openBracket; pos < workingHeader.length() && openBracket != -1 && commaIndex != -1 && openBracket < commaIndex; pos++){
+                if (workingHeader.charAt(pos) == '(') bracketCount++;
+                if (workingHeader.charAt(pos) == ')') bracketCount--;
+                if (bracketCount == 0) { //brackets closed
+                    commaIndex = workingHeader.indexOf(',', pos);
+                    openBracket = workingHeader.indexOf('(', pos);
+                }
+            }
+
+            if (commaIndex != -1) {
+                this.galleryName = workingHeader.substring(0, commaIndex).trim();
+                this.date = workingHeader.substring(commaIndex + 1, openBracket == -1 ? workingHeader.length() : openBracket).trim();
+            } else {
+                this.galleryName = workingHeader.substring(0, openBracket == -1 ? workingHeader.length() : openBracket).trim();
+            }
+
             int closeBracket = workingHeader.lastIndexOf(')');
+            if (closeBracket < pos+1) closeBracket = -1;
             if (openBracket != -1 && closeBracket != -1 && openBracket < closeBracket) {
                 this.event = workingHeader.substring(openBracket + 1, closeBracket).trim();
-                workingHeader = workingHeader.substring(0, openBracket).trim();
             } else if (openBracket != -1 || closeBracket != -1) {
                 System.err.println("WARNING: Malformed bracket structure in header: \"" + header + "\" in " + filePath);
                 this.validHeader = false;
-            }
-
-            int commaIndex = workingHeader.indexOf(',');
-            if (commaIndex != -1) {
-                this.galleryName = workingHeader.substring(0, commaIndex).trim();
-                this.date = workingHeader.substring(commaIndex + 1).trim();
-            } else {
-                this.galleryName = workingHeader.trim();
             }
 
             if (this.galleryName.isEmpty()) {
