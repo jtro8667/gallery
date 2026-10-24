@@ -8,6 +8,8 @@ import com.gallery.generator.util.ContentCleaner;
 import com.gallery.generator.util.GalleryProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.util.ContextInitializer;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,6 +27,22 @@ public class Main {
 
     public static void main(String[] args) {
         AppConfig config = new AppConfig(args);
+
+        if (config.getLogDir() != null) {
+            System.setProperty("log_dir", config.getLogDir());
+
+            // Get the factory context (this works perfectly in 2.0.9)
+            LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
+            context.reset();
+
+            // Re-trigger the configuration to pick up the new system property
+            try {
+                ContextInitializer ci = new ContextInitializer(context);
+                ci.autoConfig();
+            } catch (Exception e) {
+                System.err.println("Failed to reload Logback configuration: " + e.getMessage());
+            }
+        }
 
         ObjectMapper mapper = new ObjectMapper();
         mapper.enable(SerializationFeature.INDENT_OUTPUT);

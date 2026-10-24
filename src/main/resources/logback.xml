@@ -7,9 +7,9 @@
         </encoder>
     </appender>
 
-    <!-- File appender: filters to log only WARN and higher -->
     <appender name="FILE" class="ch.qos.logback.core.FileAppender">
-        <file>${user.dir}/gallery-generator-errors.log</file>
+        <!-- It will check for a system property named log_dir. If missing, it falls back to user.dir -->
+        <file>${log_dir:-${user.dir}}/gallery-generator-errors.log</file>
         <append>false</append>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>WARN</level>

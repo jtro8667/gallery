@@ -108,4 +108,5 @@ public class AppConfig {
     public boolean isRegenerateExistingImages() { return Boolean.parseBoolean(properties.getProperty("regenerateExistingImages", "true")); }
     public String getLocale() { return properties.getProperty("locale", "en"); }
     public boolean isTreatSubDirsAsDates() { return Boolean.parseBoolean(properties.getProperty("treatSubDirsAsDates", "false")); }
+    public String getLogDir() { return properties.getProperty("log_dir"); }
 }
