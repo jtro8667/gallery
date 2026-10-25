@@ -65,7 +65,11 @@ export default function RootView() {
                 return res.json();
             })
             .then((data) => {
-                setGalleries(data);
+                // Seřazení galerií podle českých pravidel (Ž bude správně až po Z)
+                const sortedData = [...data].sort((a, b) =>
+                    (a.name || '').localeCompare(b.name || '', 'cs')
+                );
+                setGalleries(sortedData);
                 setLoading(false);
             })
             .catch((err) => {
