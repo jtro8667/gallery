@@ -17,7 +17,7 @@ export const CONFIG = {
     SUBDIRECTORIES_TITLE: "Galerie",
     EVENT_LABEL: "Akce",
     PAGE_TITLE: "Galerie českých hradů",
-    ROOT_INTRO_TEXT: "Galerie je zatím ve výstavbě, fotografie zde jsou zmenšeniny. Případné chyby hlašte na josef.troch@email.cz",
+    ROOT_INTRO_TEXT: "Galerie je zatím ve výstavbě, fotografie zde jsou zmenšeniny.\nPřípadné chyby hlašte na josef.troch@email.cz",
 
     // Navigation buttons
     BACK_TO_ROOT: "← Zpět na přehled galerií",

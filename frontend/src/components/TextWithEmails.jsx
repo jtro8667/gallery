@@ -8,14 +8,30 @@ const EMAIL_REGEX = /([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
 export default function TextWithEmails({ text }) {
     if (!text) return null;
 
+    // Split text by newlines first
+    const lines = text.split('\n');
+
+    return (
+        <>
+            {lines.map((line, lineIndex) => (
+                <span key={lineIndex}>
+                    {processLine(line)}
+                    {lineIndex < lines.length - 1 && <br />}
+                </span>
+            ))}
+        </>
+    );
+}
+
+function processLine(line) {
     const parts = [];
     let lastIndex = 0;
     let match;
 
-    while ((match = EMAIL_REGEX.exec(text)) !== null) {
+    while ((match = EMAIL_REGEX.exec(line)) !== null) {
         // Add text before the email
         if (match.index > lastIndex) {
-            parts.push(text.slice(lastIndex, match.index));
+            parts.push(line.slice(lastIndex, match.index));
         }
 
         // Add the email with @ as image
@@ -26,9 +42,9 @@ export default function TextWithEmails({ text }) {
     }
 
     // Add remaining text after the last email
-    if (lastIndex < text.length) {
-        parts.push(text.slice(lastIndex));
+    if (lastIndex < line.length) {
+        parts.push(line.slice(lastIndex));
     }
 
-    return <span>{parts.length > 0 ? parts : text}</span>;
+    return parts.length > 0 ? parts : line;
 }
