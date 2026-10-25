@@ -106,6 +106,7 @@ public class AppConfig {
     public boolean isCopyExif() { return Boolean.parseBoolean(properties.getProperty("copy_exif", "true")); }
     public boolean isIncludeWatermark() { return Boolean.parseBoolean(properties.getProperty("includeWatermark", "false")); }
     public boolean isRegenerateExistingImages() { return Boolean.parseBoolean(properties.getProperty("regenerateExistingImages", "true")); }
+    public String getProtectedDirectories() { return properties.getProperty("protected_directories");}
     public String getLocale() { return properties.getProperty("locale", "en"); }
     public boolean isTreatSubDirsAsDates() { return Boolean.parseBoolean(properties.getProperty("treatSubDirsAsDates", "false")); }
     public String getLogDir() { return properties.getProperty("log_dir"); }

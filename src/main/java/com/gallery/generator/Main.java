@@ -61,7 +61,7 @@ public class Main {
         if (!config.isCheckOnly()) {
             if (config.isRegenerateExistingImages()) {
                 if (targetDir.exists()) {
-                    ContentCleaner.deleteDirectoryContents(targetDir);
+                    ContentCleaner.deleteDirectoryContents(targetDir, config.getProtectedDirectories());
                 } else if (!targetDir.mkdirs()) {
                     logger.error("Failed to create target_dir structure.");
                     return;
@@ -113,6 +113,10 @@ public class Main {
             }
             if (targetCanonical.startsWith(sourceCanonical + File.separator)) {
                 logger.error("target_dir is strictly forbidden from being a subdirectory of source_dir.");
+                return false;
+            }
+            if (sourceCanonical.startsWith(targetCanonical + File.separator)) {
+                logger.error("target_dir cannot be a parent directory of source_dir or located anywhere on its path to root.");
                 return false;
             }
         } catch (IOException e) {

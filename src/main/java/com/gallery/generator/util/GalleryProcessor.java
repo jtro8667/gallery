@@ -170,11 +170,11 @@ public class GalleryProcessor {
     }
 
     /**
-     * NEW METHOD: Deletes orphaned files and empty directories in targetDir.
+     * Deletes orphaned files and empty directories in targetDir,
+     * while completely skipping protected directories from configuration.
      */
     public void cleanupOrphanedFiles(File targetDir) {
         if (config.isCheckOnly() || config.isRegenerateExistingImages()) {
-            // If regenerate is true, targetDir was already cleared at startup, no orphans possible.
             return;
         }
 
@@ -189,31 +189,46 @@ public class GalleryProcessor {
             activeTargetFiles.add(netlifyTomlFile.getCanonicalPath());
             activeTargetDirs.add(targetRootCanonical);
 
-            // Post-order traversal (bottom-up) to safely delete files first, then directories
-            cleanupRecursive(targetDir);
+            // Parse protected directories from configuration
+            Set<String> protectedDirs = new HashSet<>();
+            String protectedConfig = config.getProtectedDirectories();
+            if (protectedConfig != null && !protectedConfig.isBlank()) {
+                for (String dir : protectedConfig.split(",")) {
+                    protectedDirs.add(dir.trim().toLowerCase());
+                }
+            }
+
+            // Execute bottom-up recursive cleanup
+            cleanupRecursive(targetDir, protectedDirs);
 
         } catch (IOException e) {
             logger.error("Failed during target cleanup initialization: {}", e.getMessage());
         }
     }
 
-    private void cleanupRecursive(File currentFile) throws IOException {
+    private void cleanupRecursive(File currentFile, Set<String> protectedDirs) throws IOException {
+        // If this is a directory and its name is in the protected list, skip entirely without listing children
+        if (currentFile.isDirectory() && protectedDirs.contains(currentFile.getName().toLowerCase())) {
+            logger.info("Skipping protected directory and all its contents: {}", currentFile.getAbsolutePath());
+            return;
+        }
+
         String canonicalPath = currentFile.getCanonicalPath();
 
         if (currentFile.isDirectory()) {
             File[] children = currentFile.listFiles();
             if (children != null) {
                 for (File child : children) {
-                    cleanupRecursive(child);
+                    cleanupRecursive(child, protectedDirs);
                 }
             }
 
-            // After processing children, check if this directory itself is an orphan or now completely empty
+            // Re-evaluate contents after child processing
             File[] remainingChildren = currentFile.listFiles();
             boolean isEmpty = (remainingChildren == null || remainingChildren.length == 0);
 
             if (!activeTargetDirs.contains(canonicalPath) || isEmpty) {
-                // Safe fallback: never delete the main target root folder itself
+                // Safeguard: never delete the main target root folder itself
                 if (!canonicalPath.equals(new File(config.getTargetDir()).getCanonicalPath())) {
                     if (currentFile.delete()) {
                         logger.info("Deleted orphaned/empty target directory: {}", currentFile.getAbsolutePath());
@@ -233,6 +248,7 @@ public class GalleryProcessor {
             }
         }
     }
+
 
     private String lookupDescription(String filename, Map<String, String> descriptions, Set matchedIds) {
         String id = lookupId(filename);
