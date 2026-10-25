@@ -16,6 +16,20 @@ export default function PhotoView({ galleryPath: propGalleryPath, imageName: pro
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    // Inject a meta tag to prevent bots from indexing this large photo view page
+    useEffect(() => {
+        const meta = document.createElement('meta');
+        meta.name = 'robots';
+        meta.content = 'noindex, follow'; // Do not index this page, but follow navigation links
+        document.head.appendChild(meta);
+
+        // Clean up the meta tag when the component unmounts
+        return () => {
+            document.head.removeChild(meta);
+        };
+    }, []);
+
+    // Fetch gallery metadata configuration
     useEffect(() => {
         fetch(resolveDataPath(`${galleryPath}/index.json`))
             .then((res) => {
@@ -39,24 +53,28 @@ export default function PhotoView({ galleryPath: propGalleryPath, imageName: pro
     const hasPrevious = currentIndex > 0;
     const hasNext = currentIndex !== -1 && currentIndex < images.length - 1;
 
+    // Handle navigation to the previous image
     const handlePrevious = useCallback(() => {
         if (hasPrevious) {
             const prevImage = images[currentIndex - 1].image;
-            navigate(`/gallery/${galleryPath}/${prevImage}.htm`); // Updated navigate call with .htm
+            navigate(`/gallery/${galleryPath}/${prevImage}.htm`);
         }
     }, [hasPrevious, currentIndex, images, galleryPath, navigate]);
 
+    // Handle navigation to the next image
     const handleNext = useCallback(() => {
         if (hasNext) {
             const nextImage = images[currentIndex + 1].image;
-            navigate(`/gallery/${galleryPath}/${nextImage}.htm`); // Updated navigate call with .htm
+            navigate(`/gallery/${galleryPath}/${nextImage}.htm`);
         }
     }, [hasNext, currentIndex, images, galleryPath, navigate]);
 
+    // Handle navigation back to the parent gallery overview
     const handleBackToGallery = useCallback(() => {
         navigate(`/gallery/${galleryPath}`);
     }, [galleryPath, navigate]);
 
+    // Bind physical keyboard events for enhanced accessibility
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.key === 'ArrowLeft') handlePrevious();
@@ -111,12 +129,8 @@ export default function PhotoView({ galleryPath: propGalleryPath, imageName: pro
                         onClick={handlePrevious}
                         disabled={!hasPrevious}
                         className={`p-3 rounded-full transition-all focus:outline-none flex-shrink-0 z-10 ${
-                            isDark
-                                ? 'bg-gray-800 hover:bg-gray-700 text-white'
-                                : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
-                        } ${
-                            !hasPrevious ? 'opacity-20 cursor-not-allowed' : 'opacity-80 hover:opacity-100'
-                        }`}
+                            isDark ? 'bg-gray-800 hover:bg-gray-700 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                        } ${!hasPrevious ? 'opacity-20 cursor-not-allowed' : 'opacity-80 hover:opacity-100'}`}
                         aria-label={CONFIG.PREVIOUS_BUTTON}
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -125,8 +139,10 @@ export default function PhotoView({ galleryPath: propGalleryPath, imageName: pro
                     </button>
 
                     <div className="w-full h-[70vh] flex items-center justify-center">
+                        {/* Direct high-res link is retained for human users to click and download */}
                         <a
                             href={resolveDataPath(`${galleryPath}/${currentImageData.image}`)}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center justify-center w-full h-full"
                         >
@@ -142,12 +158,8 @@ export default function PhotoView({ galleryPath: propGalleryPath, imageName: pro
                         onClick={handleNext}
                         disabled={!hasNext}
                         className={`p-3 rounded-full transition-all focus:outline-none flex-shrink-0 z-10 ${
-                            isDark
-                                ? 'bg-gray-800 hover:bg-gray-700 text-white'
-                                : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
-                        } ${
-                            !hasNext ? 'opacity-20 cursor-not-allowed' : 'opacity-80 hover:opacity-100'
-                        }`}
+                            isDark ? 'bg-gray-800 hover:bg-gray-700 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                        } ${!hasNext ? 'opacity-20 cursor-not-allowed' : 'opacity-80 hover:opacity-100'}`}
                         aria-label={CONFIG.NEXT_BUTTON}
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -158,9 +170,7 @@ export default function PhotoView({ galleryPath: propGalleryPath, imageName: pro
             </main>
 
             <footer className={`max-w-4xl w-full mx-auto mt-6 rounded-lg p-5 border shadow-md ${
-                isDark
-                    ? 'bg-gray-800 border-gray-700'
-                    : 'bg-gray-100 border-gray-300'
+                isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-300'
             }`}>
                 {currentImageData.description ? (
                     <h2 className={`text-lg md:text-xl font-medium mb-3 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
@@ -172,7 +182,6 @@ export default function PhotoView({ galleryPath: propGalleryPath, imageName: pro
 
                 <div className={`grid grid-cols-1 sm:grid-cols-2 text-xs font-mono gap-2 border-t pt-3 ${isDark ? 'text-gray-400 border-gray-700' : 'text-gray-600 border-gray-300'}`}>
                     <div><span className={isDark ? 'text-gray-500' : 'text-gray-600'}>File:</span> {currentImageData.image}</div>
-                    {/* Removed Path display */}
                 </div>
             </footer>
 

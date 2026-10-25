@@ -1,4 +1,35 @@
+# ====================================================================
+# HTTP HEADERS CONFIGURATION FOR DATA SITE (IMAGE CDN & JSON METADATA)
+# ====================================================================
+
+# Rule 1: Allow search engines to index thumbnails and grant CORS access to anyone
 [[headers]]
-  for = "/*" # you can configure the correct paths here
-  [headers.values]
-    access-control-allow-origin = "*" # see a list of allowed values here: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin
+for = "/**/preview/*.jpg"
+[headers.values]
+access-control-allow-origin = "*"
+X-Robots-Tag = "index, follow"
+
+[[headers]]
+for = "/**/preview/*.png"
+[headers.values]
+access-control-allow-origin = "*"
+X-Robots-Tag = "index, follow"
+
+# Rule 2: Block search engines from indexing large photos anywhere in the project
+[[headers]]
+for = "*.jpg"
+[headers.values]
+access-control-allow-origin = "*"
+X-Robots-Tag = "noindex"
+
+[[headers]]
+for = "*.png"
+[headers.values]
+access-control-allow-origin = "*"
+X-Robots-Tag = "noindex"
+
+# Rule 3: Allow your frontend site to fetch JSON metadata files from any directory
+[[headers]]
+for = "*.json"
+[headers.values]
+access-control-allow-origin = "*"
