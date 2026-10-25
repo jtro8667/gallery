@@ -78,7 +78,14 @@ public class Main {
         // Execute the optimized high-performance tree pipeline model scan layout
         processor.processDirectory(sourceDir, sourceDir, targetDir);
 
+        // --- INSERT NEW CLEANUP ROUTINE HERE ---
+        if (!config.isCheckOnly() && !config.isRegenerateExistingImages()) {
+            processor.cleanupOrphanedFiles(targetDir);
+        }
+        // ---------------------------------------
+
         List<RootEntry> rootEntries = processor.getRootEntries();
+
         if (!config.isCheckOnly() && !rootEntries.isEmpty()) {
             File rootJsonFile = new File(targetDir, config.getRootJsonName());
             try {

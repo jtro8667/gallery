@@ -60,11 +60,11 @@ public class GalleryProcessor {
         logger.info(message);
     }
 
-    /**
-     * Recursively scans and processes the file tree using a high-efficiency bottom-up pipeline model.
-     *
-     * @return DirectoryResult metadata bubble-up token payload mapping the scanned state.
-     */
+    // Add these two fields at the class level of GalleryProcessor to track valid paths
+    private final Set<String> activeTargetDirs = Collections.synchronizedSet(new HashSet<>());
+    private final Set<String> activeTargetFiles = Collections.synchronizedSet(new HashSet<>());
+
+    // Modify the processDirectory method to track files and folders
     public DirectoryResult processDirectory(File currentSrcDir, File rootDirSrc, File baseTgtDir) {
         if (excludeSubMask.matches(currentSrcDir.getName())) {
             logger.info("Excluding {}", currentSrcDir.getAbsolutePath());
@@ -76,7 +76,6 @@ public class GalleryProcessor {
 
         DirectoryContents contents = scanDirectoryContents(allFiles);
 
-        // Bottom-up recursion step: resolve all child branches first to inherit their results
         List<DirectoryResult> activeSubDirs = new ArrayList<>();
         for (File subDir : contents.subDirectories) {
             DirectoryResult childRes = processDirectory(subDir, rootDirSrc, baseTgtDir);
@@ -89,7 +88,6 @@ public class GalleryProcessor {
         boolean hasLocalContent = !contents.imageFiles().isEmpty() || !contents.metadataFiles().isEmpty();
         boolean hasActiveBranchTree = hasLocalContent || !activeSubDirs.isEmpty();
 
-        // Enforce boundary constraint: skip local structural mapping execution routines for root directory path
         if (isRootBaseDirectory || !hasActiveBranchTree) {
             return new DirectoryResult(null, null, currentSrcDir.getName(), config.getGalleryJsonName(), null, hasActiveBranchTree, activeSubDirs);
         }
@@ -97,10 +95,19 @@ public class GalleryProcessor {
         String relativePath = rootDirSrc.toURI().relativize(currentSrcDir.toURI()).getPath();
         File currentTgtDir = new File(baseTgtDir, relativePath);
 
+        // --- NEW: Track this target directory and its previews folder as active ---
+        try {
+            activeTargetDirs.add(currentTgtDir.getCanonicalPath());
+            File previewDir = new File(currentTgtDir, config.getTargetPreviewDirName());
+            activeTargetDirs.add(previewDir.getCanonicalPath());
+        } catch (IOException e) {
+            logger.warn("Failed to track active target directory path: {}", e.getMessage());
+        }
+        // ------------------------------------------------------------------------
+
         logProgress(String.format("Processing directory %s: %d images found, %d active child branches.",
                 currentSrcDir.getName(), contents.imageFiles().size(), activeSubDirs.size()));
 
-        // Resolve Fallback Names from child metadata tokens without running disk I/O routines again
         String implicitFallbackName = null;
         for (DirectoryResult child : activeSubDirs) {
             if (child.galleryName() != null && !child.galleryName().isBlank()) {
@@ -116,6 +123,27 @@ public class GalleryProcessor {
         String noteContent = readAdditionalFile(contents.additionalFile());
 
         ImageProcessingResult imageResult = processImagesInParallel(contents.imageFiles(), currentTgtDir, parser.getImageDescriptions());
+
+        // --- NEW: Track all processed image files and their previews as active ---
+        for (ImageEntry entry : imageResult.combinedImages()) {
+            try {
+                File mainImage = new File(currentTgtDir, entry.image());
+                activeTargetFiles.add(mainImage.getCanonicalPath());
+
+                File previewImage = new File(currentTgtDir, entry.preview()); // entry.preview() is "previews/filename.jpg"
+                activeTargetFiles.add(previewImage.getCanonicalPath());
+            } catch (IOException e) {
+                logger.warn("Failed to track active target file path: {}", e.getMessage());
+            }
+        }
+        // Track the gallery.json index file itself so it doesn't get wiped
+        try {
+            File galleryJson = new File(currentTgtDir, config.getGalleryJsonName());
+            activeTargetFiles.add(galleryJson.getCanonicalPath());
+        } catch (IOException e) {
+            logger.warn("Failed to track gallery index path: {}", e.getMessage());
+        }
+        // ------------------------------------------------------------------------
 
         validateMissingDescriptions(contents.imageFiles(), parser, currentSrcDir.getAbsolutePath());
 
@@ -139,6 +167,71 @@ public class GalleryProcessor {
             rootEntries.add(new RootEntry(currentDirInfo.galleryName(), dateForRoot, currentSrcDir.getName(), config.getGalleryJsonName(), trackingPreview));
         }
         return currentDirInfo;
+    }
+
+    /**
+     * NEW METHOD: Deletes orphaned files and empty directories in targetDir.
+     */
+    public void cleanupOrphanedFiles(File targetDir) {
+        if (config.isCheckOnly() || config.isRegenerateExistingImages()) {
+            // If regenerate is true, targetDir was already cleared at startup, no orphans possible.
+            return;
+        }
+
+        logger.info("Starting cleanup of orphaned files in target directory...");
+        try {
+            String targetRootCanonical = targetDir.getCanonicalPath();
+
+            // Always safeguard root index and infrastructure configuration files
+            File rootJsonFile = new File(targetDir, config.getRootJsonName());
+            File netlifyTomlFile = new File(targetDir, "netlify.toml");
+            activeTargetFiles.add(rootJsonFile.getCanonicalPath());
+            activeTargetFiles.add(netlifyTomlFile.getCanonicalPath());
+            activeTargetDirs.add(targetRootCanonical);
+
+            // Post-order traversal (bottom-up) to safely delete files first, then directories
+            cleanupRecursive(targetDir);
+
+        } catch (IOException e) {
+            logger.error("Failed during target cleanup initialization: {}", e.getMessage());
+        }
+    }
+
+    private void cleanupRecursive(File currentFile) throws IOException {
+        String canonicalPath = currentFile.getCanonicalPath();
+
+        if (currentFile.isDirectory()) {
+            File[] children = currentFile.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    cleanupRecursive(child);
+                }
+            }
+
+            // After processing children, check if this directory itself is an orphan or now completely empty
+            File[] remainingChildren = currentFile.listFiles();
+            boolean isEmpty = (remainingChildren == null || remainingChildren.length == 0);
+
+            if (!activeTargetDirs.contains(canonicalPath) || isEmpty) {
+                // Safe fallback: never delete the main target root folder itself
+                if (!canonicalPath.equals(new File(config.getTargetDir()).getCanonicalPath())) {
+                    if (currentFile.delete()) {
+                        logger.info("Deleted orphaned/empty target directory: {}", currentFile.getAbsolutePath());
+                    } else {
+                        logger.warn("Failed to delete directory: {}", currentFile.getAbsolutePath());
+                    }
+                }
+            }
+        } else {
+            // File handling
+            if (!activeTargetFiles.contains(canonicalPath)) {
+                if (currentFile.delete()) {
+                    logger.info("Deleted orphaned target file: {}", currentFile.getAbsolutePath());
+                } else {
+                    logger.warn("Failed to delete orphaned file: {}", currentFile.getAbsolutePath());
+                }
+            }
+        }
     }
 
     private String lookupDescription(String filename, Map<String, String> descriptions, Set matchedIds) {
