@@ -1,0 +1,5 @@
+Deploy data to netlify with (in the output directory) - the data transfer is done only once:
+
+netlify deploy
+
+netlify deploy --prod
