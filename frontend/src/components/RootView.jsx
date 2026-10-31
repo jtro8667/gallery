@@ -119,7 +119,7 @@ export default function RootView() {
                     const offsetPosition = elementPosition - 20; // 20px breathing room at the top
                     window.scrollTo({ top: offsetPosition, behavior: 'auto' });
 
-                    // Clear after scroll to prevent jumping on completely new fresh visits
+                    // Clear inside the timeout only after successful execution
                     sessionStorage.removeItem('lastViewedGallery');
                 }, 50);
 
@@ -206,6 +206,11 @@ export default function RootView() {
                                 id={`gallery-card-${gallery.directory}`} // Unique identifier for targeted scrolling upon return
                                 ref={el => { if (isFirstOfLetter) letterRefs.current[letter] = el; }}
                                 to={`/gallery/${gallery.directory}`}
+                                onClick={() => {
+                                    if (gallery.directory) {
+                                        sessionStorage.setItem('lastViewedGallery', gallery.directory);
+                                    }
+                                }}
                                 className={`group rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col ${isDark ? 'bg-gray-800' : 'bg-white'}`}
                             >
                                 <div className={`w-full aspect-[4/3] overflow-hidden ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
@@ -242,3 +247,4 @@ export default function RootView() {
         </div>
     );
 }
+
