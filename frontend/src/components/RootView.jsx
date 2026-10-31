@@ -105,7 +105,7 @@ export default function RootView() {
         return () => resizeObserver.disconnect();
     }, [loading, galleries]);
 
-    // Autoscroll back to the last opened gallery card upon return (link click or browser back)
+    // Autoscroll back to the last viewed gallery card (matches the working PhotoView pattern)
     useLayoutEffect(() => {
         if (loading || galleries.length === 0) return;
 
@@ -118,15 +118,13 @@ export default function RootView() {
                     const elementPosition = element.getBoundingClientRect().top + window.scrollY;
                     const offsetPosition = elementPosition - 20; // 20px breathing room at the top
                     window.scrollTo({ top: offsetPosition, behavior: 'auto' });
-
-                    // Clear inside the timeout only after successful execution
                     sessionStorage.removeItem('lastViewedGallery');
                 }, 50);
 
                 return () => clearTimeout(timer);
             }
         }
-    }, [loading, galleries, location]);
+    }, [loading, galleries, location.state]);
 
     if (loading) return <div className="text-center p-10 font-semibold">Loading galleries...</div>;
     if (error) return <div className="text-center p-10 text-red-600 font-semibold">Error: {error}</div>;
@@ -206,11 +204,6 @@ export default function RootView() {
                                 id={`gallery-card-${gallery.directory}`} // Unique identifier for targeted scrolling upon return
                                 ref={el => { if (isFirstOfLetter) letterRefs.current[letter] = el; }}
                                 to={`/gallery/${gallery.directory}`}
-                                onClick={() => {
-                                    if (gallery.directory) {
-                                        sessionStorage.setItem('lastViewedGallery', gallery.directory);
-                                    }
-                                }}
                                 className={`group rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col ${isDark ? 'bg-gray-800' : 'bg-white'}`}
                             >
                                 <div className={`w-full aspect-[4/3] overflow-hidden ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
@@ -247,4 +240,3 @@ export default function RootView() {
         </div>
     );
 }
-

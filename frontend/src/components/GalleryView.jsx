@@ -30,10 +30,9 @@ export default function GalleryView() {
                 document.title = data.name || CONFIG.PAGE_TITLE;
                 setLoading(false);
 
-                // Save the current gallery directory so RootView knows where to scroll back even via browser back button
-                if (data.directory || galleryPath) {
-                    // Use data.directory if available, fallback to the current URL parameter path
-                    const currentDir = data.directory || galleryPath.split('/').pop();
+                // Exactly like PhotoView: save it immediately when this view is active
+                if (galleryPath) {
+                    const currentDir = galleryPath.split('/').pop();
                     sessionStorage.setItem('lastViewedGallery', currentDir);
                 }
             })
