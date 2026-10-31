@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom'; // Added useLocation
 import { CONFIG, resolveDataPath } from '../config';
 import TextWithEmails from './TextWithEmails';
 import EmailDisplay from './EmailDisplay';
@@ -54,6 +54,7 @@ export default function RootView() {
 
     const letterRefs = useRef({});
     const gridContainerRef = useRef(null);
+    const location = useLocation(); // Track navigation state
 
     const getCzechStartingLetter = (name) => {
         if (!name) return '';
@@ -70,7 +71,7 @@ export default function RootView() {
                 return res.json();
             })
             .then((data) => {
-                // Seřazení galerií podle českých pravidel (Ž bude správně až po Z)
+                // Sort galleries according to Czech alphabetical rules (Ž correctly after Z)
                 const sortedData = [...data].sort((a, b) =>
                     (a.name || '').localeCompare(b.name || '', 'cs')
                 );
@@ -92,7 +93,7 @@ export default function RootView() {
             const widths = {};
 
             // Calculate available width inside card minus padding
-            // Tailwinds px-4 padding = 16px left + 16px right = 32px
+            // Tailwind px-4 padding = 16px left + 16px right = 32px
             for (let i = 0; i < gridItems.length; i++) {
                 const card = gridItems[i];
                 if (card) {
@@ -113,23 +114,28 @@ export default function RootView() {
         return () => resizeObserver.disconnect();
     }, [loading, galleries]);
 
-    // Autoscroll back to the last active letter upon return
+    // Autoscroll back ONLY when returning via the back link
     useLayoutEffect(() => {
         if (loading || galleries.length === 0) return;
 
-        const savedLetter = sessionStorage.getItem('lastGalleryLetter');
-        if (savedLetter && letterRefs.current[savedLetter]) {
-            // Tiny timeout allows layout styles to paint completely before scrolling
-            const timer = setTimeout(() => {
-                const element = letterRefs.current[savedLetter];
-                const elementPosition = element.getBoundingClientRect().top + window.scrollY;
-                const offsetPosition = elementPosition - 20;
-                window.scrollTo({ top: offsetPosition, behavior: 'auto' });
-            }, 50);
+        // Check if we came from a link that set the 'fromGallery' state flag
+        const isReturningFromGallery = location.state?.fromGallery;
 
-            return () => clearTimeout(timer);
+        if (isReturningFromGallery) {
+            const savedLetter = sessionStorage.getItem('lastGalleryLetter');
+            if (savedLetter && letterRefs.current[savedLetter]) {
+                // Tiny timeout allows layout styles to paint completely before scrolling
+                const timer = setTimeout(() => {
+                    const element = letterRefs.current[savedLetter];
+                    const elementPosition = element.getBoundingClientRect().top + window.scrollY;
+                    const offsetPosition = elementPosition - 20;
+                    window.scrollTo({ top: offsetPosition, behavior: 'auto' });
+                }, 50);
+
+                return () => clearTimeout(timer);
+            }
         }
-    }, [loading, galleries]);
+    }, [loading, galleries, location.state]);
 
     if (loading) return <div className="text-center p-10 font-semibold">Loading galleries...</div>;
     if (error) return <div className="text-center p-10 text-red-600 font-semibold">Error: {error}</div>;

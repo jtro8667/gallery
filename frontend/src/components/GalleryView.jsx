@@ -96,7 +96,12 @@ export default function GalleryView() {
 
     return (
         <div className={'max-w-7xl mx-auto px-4 py-8 ' + bgClass}>
-            <Link to="/" className={'hover:underline inline-block mb-6 font-medium ' + (isDark ? 'text-blue-400' : 'text-blue-600')}>
+            {/* Added location state flag to identify navigation from back button */}
+            <Link
+                to="/"
+                state={{ fromGallery: true }}
+                className={'hover:underline inline-block mb-6 font-medium ' + (isDark ? 'text-blue-400' : 'text-blue-600')}
+            >
                 {CONFIG.BACK_TO_ROOT}
             </Link>
 
