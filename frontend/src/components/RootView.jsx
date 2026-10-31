@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { CONFIG, resolveDataPath } from '../config';
 import TextWithEmails from './TextWithEmails';
 import EmailDisplay from './EmailDisplay';
@@ -51,7 +51,6 @@ export default function RootView() {
 
     const letterRefs = useRef({});
     const gridContainerRef = useRef(null);
-    const location = useLocation();
 
     const getCzechStartingLetter = (name) => {
         if (!name) return '';
@@ -107,13 +106,12 @@ export default function RootView() {
         return () => resizeObserver.disconnect();
     }, [loading, galleries]);
 
-    // Autoscroll only when returning to RootView from a gallery
+    // Autoscroll only when returning to RootView from a gallery.
+    // Works with both the gallery link and the browser Back button.
     useLayoutEffect(() => {
         if (loading || galleries.length === 0) return;
 
-        const targetGalleryDir =
-            location.state?.fromGallery ||
-            sessionStorage.getItem('returnToRootGallery');
+        const targetGalleryDir = sessionStorage.getItem('returnToRootGallery');
 
         if (!targetGalleryDir) return;
 
@@ -121,22 +119,22 @@ export default function RootView() {
             `gallery-card-${targetGalleryDir}`
         );
 
-        if (element) {
-            const timer = setTimeout(() => {
-                const elementPosition =
-                    element.getBoundingClientRect().top + window.scrollY;
+        if (!element) return;
 
-                window.scrollTo({
-                    top: elementPosition - 20,
-                    behavior: 'auto'
-                });
+        const timer = setTimeout(() => {
+            const elementPosition =
+                element.getBoundingClientRect().top + window.scrollY;
 
-                sessionStorage.removeItem('returnToRootGallery');
-            }, 50);
+            window.scrollTo({
+                top: elementPosition - 20,
+                behavior: 'auto'
+            });
 
-            return () => clearTimeout(timer);
-        }
-    }, [loading, galleries, location.state]);
+            sessionStorage.removeItem('returnToRootGallery');
+        }, 50);
+
+        return () => clearTimeout(timer);
+    }, [loading, galleries]);
 
     if (loading) {
         return <div className="text-center p-10 font-semibold">Loading galleries...</div>;
