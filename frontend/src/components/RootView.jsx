@@ -62,6 +62,7 @@ export default function RootView() {
 
     useEffect(() => {
         document.title = CONFIG.PAGE_TITLE;
+
         fetch(resolveDataPath('root.json'))
             .then((res) => {
                 if (!res.ok) throw new Error('Failed to load root.json');
@@ -95,6 +96,7 @@ export default function RootView() {
                     widths[i] = Math.max(0, cardWidth - 32);
                 }
             }
+
             setContainerWidths(widths);
         };
 
@@ -105,29 +107,44 @@ export default function RootView() {
         return () => resizeObserver.disconnect();
     }, [loading, galleries]);
 
-    // Autoscroll back to the last viewed gallery card (matches the working PhotoView pattern)
+    // Autoscroll only when returning to RootView from a gallery
     useLayoutEffect(() => {
         if (loading || galleries.length === 0) return;
 
-        const targetGalleryDir = location.state?.fromGallery || sessionStorage.getItem('lastViewedGallery');
+        const targetGalleryDir =
+            location.state?.fromGallery ||
+            sessionStorage.getItem('returnToRootGallery');
 
-        if (targetGalleryDir) {
-            const element = document.getElementById(`gallery-card-${targetGalleryDir}`);
-            if (element) {
-                const timer = setTimeout(() => {
-                    const elementPosition = element.getBoundingClientRect().top + window.scrollY;
-                    const offsetPosition = elementPosition - 20; // 20px breathing room at the top
-                    window.scrollTo({ top: offsetPosition, behavior: 'auto' });
-                    sessionStorage.removeItem('lastViewedGallery');
-                }, 50);
+        if (!targetGalleryDir) return;
 
-                return () => clearTimeout(timer);
-            }
+        const element = document.getElementById(
+            `gallery-card-${targetGalleryDir}`
+        );
+
+        if (element) {
+            const timer = setTimeout(() => {
+                const elementPosition =
+                    element.getBoundingClientRect().top + window.scrollY;
+
+                window.scrollTo({
+                    top: elementPosition - 20,
+                    behavior: 'auto'
+                });
+
+                sessionStorage.removeItem('returnToRootGallery');
+            }, 50);
+
+            return () => clearTimeout(timer);
         }
     }, [loading, galleries, location.state]);
 
-    if (loading) return <div className="text-center p-10 font-semibold">Loading galleries...</div>;
-    if (error) return <div className="text-center p-10 text-red-600 font-semibold">Error: {error}</div>;
+    if (loading) {
+        return <div className="text-center p-10 font-semibold">Loading galleries...</div>;
+    }
+
+    if (error) {
+        return <div className="text-center p-10 text-red-600 font-semibold">Error: {error}</div>;
+    }
 
     const gridStyle = {
         gridTemplateColumns: `repeat(${CONFIG.ROOT_COLUMNS}, minmax(0, 1fr))`
@@ -164,6 +181,7 @@ export default function RootView() {
                 <h1 className={`text-4xl font-extrabold tracking-tight sm:text-5xl ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
                     {CONFIG.PAGE_TITLE}
                 </h1>
+
                 <div className={`mt-4 max-w-2xl mx-auto rounded-lg p-4 text-sm ${isDark ? 'bg-gray-800 border border-gray-700 text-gray-300' : 'bg-blue-50 border border-blue-200 text-gray-700'}`}>
                     <TextWithEmails text={CONFIG.ROOT_INTRO_TEXT} />
                 </div>
@@ -175,8 +193,10 @@ export default function RootView() {
                                 key={letter}
                                 onClick={() => scrollToLetter(letter)}
                                 className={`px-3 py-1 text-sm font-semibold rounded shadow-sm hover:scale-105 transition-transform duration-200 ${
-                                    isDark ? 'bg-gray-800 hover:bg-gray-700 text-blue-400 border border-gray-700' : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200'
-                                }`}
+    isDark
+        ? 'bg-gray-800 hover:bg-gray-700 text-blue-400 border border-gray-700'
+        : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200'
+}`}
                             >
                                 {letter}
                             </button>
@@ -196,14 +216,28 @@ export default function RootView() {
                         const isFirstOfLetter = letterToFirstIndexMap[letter] === index;
 
                         const availableWidth = containerWidths[index] || 200;
-                        const displayDate = truncateDateToWidth(gallery.date, availableWidth, dateFontStyle);
+                        const displayDate = truncateDateToWidth(
+                            gallery.date,
+                            availableWidth,
+                            dateFontStyle
+                        );
 
                         return (
                             <Link
                                 key={index}
-                                id={`gallery-card-${gallery.directory}`} // Unique identifier for targeted scrolling upon return
-                                ref={el => { if (isFirstOfLetter) letterRefs.current[letter] = el; }}
+                                id={`gallery-card-${gallery.directory}`}
+                                ref={el => {
+                                    if (isFirstOfLetter) {
+                                        letterRefs.current[letter] = el;
+                                    }
+                                }}
                                 to={`/gallery/${gallery.directory}`}
+                                onClick={() => {
+                                    sessionStorage.setItem(
+                                        'returnToRootGallery',
+                                        gallery.directory
+                                    );
+                                }}
                                 className={`group rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col ${isDark ? 'bg-gray-800' : 'bg-white'}`}
                             >
                                 <div className={`w-full aspect-[4/3] overflow-hidden ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
@@ -219,6 +253,7 @@ export default function RootView() {
                                     <h2 className={`font-bold text-lg group-hover:text-blue-600 transition-colors ${isDark ? 'text-gray-100' : 'text-gray-800'}`}>
                                         {gallery.name}
                                     </h2>
+
                                     {gallery.date && (
                                         <p
                                             title={gallery.date}
@@ -233,6 +268,7 @@ export default function RootView() {
                     })}
                 </div>
             </main>
+
             <footer className={`mt-10 text-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                 <p>{CONFIG.FOOTER_COPYRIGHT}</p>
                 <p><EmailDisplay email={CONFIG.FOOTER_EMAIL} /></p>
