@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
+import { Link, useParams, useLocation } from 'react-router-dom'; // Added useLocation
 import { CONFIG, resolveDataPath } from '../config';
 import EmailDisplay from './EmailDisplay';
 
 export default function GalleryView() {
     const params = useParams();
     const galleryPath = params['*'] || '';
+    const location = useLocation(); // Track navigation state passed from PhotoView
 
     const [gallery, setGallery] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -34,6 +35,26 @@ export default function GalleryView() {
                 setLoading(false);
             });
     }, [galleryPath]);
+
+    // Autoscroll back to the last viewed photo card when returning from PhotoView
+    useLayoutEffect(() => {
+        if (loading || !gallery) return;
+
+        const targetImageName = location.state?.fromPhoto;
+        if (targetImageName) {
+            // Find the element via its unique HTML ID attribute
+            const element = document.getElementById(`img-card-${targetImageName}`);
+            if (element) {
+                const timer = setTimeout(() => {
+                    const elementPosition = element.getBoundingClientRect().top + window.scrollY;
+                    const offsetPosition = elementPosition - 20; // 20px offset for top breathing room
+                    window.scrollTo({ top: offsetPosition, behavior: 'auto' });
+                }, 50);
+
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [loading, gallery, location.state]);
 
     if (loading) return <div className="text-center p-10 font-semibold">Loading gallery...</div>;
     if (error) return <div className="text-center p-10 text-red-600 font-semibold">Error: {error}</div>;
@@ -72,6 +93,7 @@ export default function GalleryView() {
             {items.map((img, idx) => (
                 <Link
                     key={idx}
+                    id={`img-card-${img.image}`} // Unique identifier for DOM targeting during autoscroll
                     to={'/gallery/' + galleryPath + '/' + img.image + '.htm'}
                     className={'rounded shadow hover:shadow-md transition-shadow duration-200 flex flex-col ' + (isDark ? 'bg-gray-800' : 'bg-white')}
                 >
@@ -96,7 +118,7 @@ export default function GalleryView() {
 
     return (
         <div className={'max-w-7xl mx-auto px-4 py-8 ' + bgClass}>
-            {/* Added location state flag to identify navigation from back button */}
+            {/* Added location state flag so RootView knows we came back from a specific gallery */}
             <Link
                 to="/"
                 state={{ fromGallery: true }}

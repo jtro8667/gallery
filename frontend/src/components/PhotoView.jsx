@@ -1,5 +1,3 @@
-// src/components/PhotoView.jsx
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { CONFIG, resolveDataPath } from '../config';
@@ -69,10 +67,10 @@ export default function PhotoView({ galleryPath: propGalleryPath, imageName: pro
         }
     }, [hasNext, currentIndex, images, galleryPath, navigate]);
 
-    // Handle navigation back to the parent gallery overview
+    // Handle navigation back to the parent gallery overview, passing the image name in state
     const handleBackToGallery = useCallback(() => {
-        navigate(`/gallery/${galleryPath}`);
-    }, [galleryPath, navigate]);
+        navigate(`/gallery/${galleryPath}`, { state: { fromPhoto: imageName } });
+    }, [galleryPath, imageName, navigate]);
 
     // Bind physical keyboard events for enhanced accessibility
     useEffect(() => {
@@ -104,8 +102,10 @@ export default function PhotoView({ galleryPath: propGalleryPath, imageName: pro
     return (
         <div className={`min-h-screen flex flex-col px-4 py-6 select-none ${bgClass}`}>
             <header className="max-w-7xl w-full mx-auto mb-4 flex justify-between items-center">
+                {/* Link passing the current image name to trigger scroll position upon return */}
                 <Link
                     to={`/gallery/${galleryPath}`}
+                    state={{ fromPhoto: imageName }}
                     className={`hover:transition-colors font-medium ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
                 >
                     {CONFIG.BACK_TO_GALLERY}
@@ -139,7 +139,6 @@ export default function PhotoView({ galleryPath: propGalleryPath, imageName: pro
                     </button>
 
                     <div className="w-full h-[70vh] flex items-center justify-center">
-                        {/* Direct high-res link is retained for human users to click and download */}
                         <a
                             href={resolveDataPath(`${galleryPath}/${currentImageData.image}`)}
                             target="_blank"
