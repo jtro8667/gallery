@@ -1,5 +1,3 @@
-// src/components/RootView.jsx
-
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { CONFIG, resolveDataPath } from '../config';
@@ -57,6 +55,13 @@ export default function RootView() {
     const letterRefs = useRef({});
     const gridContainerRef = useRef(null);
 
+    const getCzechStartingLetter = (name) => {
+        if (!name) return '';
+        const upperName = name.trim().toUpperCase();
+        if (upperName.startsWith('CH')) return 'CH';
+        return upperName.charAt(0);
+    };
+
     useEffect(() => {
         document.title = CONFIG.PAGE_TITLE;
         fetch(resolveDataPath('root.json'))
@@ -108,6 +113,24 @@ export default function RootView() {
         return () => resizeObserver.disconnect();
     }, [loading, galleries]);
 
+    // Autoscroll back to the last active letter upon return
+    useLayoutEffect(() => {
+        if (loading || galleries.length === 0) return;
+
+        const savedLetter = sessionStorage.getItem('lastGalleryLetter');
+        if (savedLetter && letterRefs.current[savedLetter]) {
+            // Tiny timeout allows layout styles to paint completely before scrolling
+            const timer = setTimeout(() => {
+                const element = letterRefs.current[savedLetter];
+                const elementPosition = element.getBoundingClientRect().top + window.scrollY;
+                const offsetPosition = elementPosition - 20;
+                window.scrollTo({ top: offsetPosition, behavior: 'auto' });
+            }, 50);
+
+            return () => clearTimeout(timer);
+        }
+    }, [loading, galleries]);
+
     if (loading) return <div className="text-center p-10 font-semibold">Loading galleries...</div>;
     if (error) return <div className="text-center p-10 text-red-600 font-semibold">Error: {error}</div>;
 
@@ -117,13 +140,6 @@ export default function RootView() {
 
     const isDark = CONFIG.THEME === 'dark';
     const bgClass = isDark ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-900';
-
-    const getCzechStartingLetter = (name) => {
-        if (!name) return '';
-        const upperName = name.trim().toUpperCase();
-        if (upperName.startsWith('CH')) return 'CH';
-        return upperName.charAt(0);
-    };
 
     const rawLetters = [...new Set(galleries.map(g => getCzechStartingLetter(g.name)))].filter(Boolean);
     const alphabet = rawLetters.sort((a, b) => a.localeCompare(b, 'cs', { sensitivity: 'base' }));
@@ -137,6 +153,7 @@ export default function RootView() {
     });
 
     const scrollToLetter = (letter) => {
+        sessionStorage.setItem('lastGalleryLetter', letter);
         const element = letterRefs.current[letter];
         if (element) {
             const elementPosition = element.getBoundingClientRect().top + window.scrollY;
@@ -193,6 +210,9 @@ export default function RootView() {
                                 key={index}
                                 ref={el => { if (isFirstOfLetter) letterRefs.current[letter] = el; }}
                                 to={`/gallery/${gallery.directory}`}
+                                onClick={() => {
+                                    if (letter) sessionStorage.setItem('lastGalleryLetter', letter);
+                                }}
                                 className={`group rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col ${isDark ? 'bg-gray-800' : 'bg-white'}`}
                             >
                                 <div className={`w-full aspect-[4/3] overflow-hidden ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>

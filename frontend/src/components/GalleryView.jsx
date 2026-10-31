@@ -1,5 +1,3 @@
-// src/components/GalleryView.jsx
-
 import React, { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { CONFIG, resolveDataPath } from '../config';
@@ -12,6 +10,13 @@ export default function GalleryView() {
     const [gallery, setGallery] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    const getCzechStartingLetter = (name) => {
+        if (!name) return '';
+        const upperName = name.trim().toUpperCase();
+        if (upperName.startsWith('CH')) return 'CH';
+        return upperName.charAt(0);
+    };
 
     useEffect(() => {
         fetch(resolveDataPath(galleryPath + '/index.json'))
@@ -70,7 +75,7 @@ export default function GalleryView() {
                     to={'/gallery/' + galleryPath + '/' + img.image + '.htm'}
                     className={'rounded shadow hover:shadow-md transition-shadow duration-200 flex flex-col ' + (isDark ? 'bg-gray-800' : 'bg-white')}
                 >
-                <div className={'w-full aspect-[4/3] overflow-hidden flex items-center justify-center ' + (isDark ? 'bg-gray-700' : 'bg-gray-100')}>
+                    <div className={'w-full aspect-[4/3] overflow-hidden flex items-center justify-center ' + (isDark ? 'bg-gray-700' : 'bg-gray-100')}>
                         <img
                             src={resolveDataPath(galleryPath + '/' + img.preview)}
                             alt={img.description || img.image}
@@ -135,6 +140,10 @@ export default function GalleryView() {
                                 <Link
                                     key={index}
                                     to={'/gallery/' + galleryPath + '/' + subdir.directory}
+                                    onClick={() => {
+                                        const letter = getCzechStartingLetter(gallery.name);
+                                        if (letter) sessionStorage.setItem('lastGalleryLetter', letter);
+                                    }}
                                     className={'group rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col ' + (isDark ? 'bg-gray-800' : 'bg-white')}
                                 >
                                     <div className={'w-full aspect-[4/3] overflow-hidden ' + (isDark ? 'bg-gray-700' : 'bg-gray-200')}>
