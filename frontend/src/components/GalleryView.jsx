@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
-import { Link, useParams, useLocation } from 'react-router-dom'; // Added useLocation
+import { Link, useParams, useLocation } from 'react-router-dom';
 import { CONFIG, resolveDataPath } from '../config';
 import EmailDisplay from './EmailDisplay';
 
 export default function GalleryView() {
     const params = useParams();
     const galleryPath = params['*'] || '';
-    const location = useLocation(); // Track navigation state passed from PhotoView
+    const location = useLocation();
 
     const [gallery, setGallery] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -29,6 +29,13 @@ export default function GalleryView() {
                 setGallery(data);
                 document.title = data.name || CONFIG.PAGE_TITLE;
                 setLoading(false);
+
+                // Save the current gallery directory so RootView knows where to scroll back even via browser back button
+                if (data.directory || galleryPath) {
+                    // Use data.directory if available, fallback to the current URL parameter path
+                    const currentDir = data.directory || galleryPath.split('/').pop();
+                    sessionStorage.setItem('lastViewedGallery', currentDir);
+                }
             })
             .catch((err) => {
                 setError(err.message);
@@ -40,15 +47,15 @@ export default function GalleryView() {
     useLayoutEffect(() => {
         if (loading || !gallery) return;
 
-        const targetImageName = location.state?.fromPhoto;
+        const targetImageName = location.state?.fromPhoto || sessionStorage.getItem('lastViewedImage');
         if (targetImageName) {
-            // Find the element via its unique HTML ID attribute
             const element = document.getElementById(`img-card-${targetImageName}`);
             if (element) {
                 const timer = setTimeout(() => {
                     const elementPosition = element.getBoundingClientRect().top + window.scrollY;
-                    const offsetPosition = elementPosition - 20; // 20px offset for top breathing room
+                    const offsetPosition = elementPosition - 20;
                     window.scrollTo({ top: offsetPosition, behavior: 'auto' });
+                    sessionStorage.removeItem('lastViewedImage');
                 }, 50);
 
                 return () => clearTimeout(timer);

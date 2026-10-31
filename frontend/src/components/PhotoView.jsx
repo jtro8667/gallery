@@ -14,6 +14,13 @@ export default function PhotoView({ galleryPath: propGalleryPath, imageName: pro
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    useEffect(() => {
+        if (imageName) {
+            // Save the current image so GalleryView knows where to scroll even on browser back
+            sessionStorage.setItem('lastViewedImage', imageName);
+        }
+    }, [imageName]);
+
     // Inject a meta tag to prevent bots from indexing this large photo view page
     useEffect(() => {
         const meta = document.createElement('meta');

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom'; // Added useLocation
+import { Link, useLocation } from 'react-router-dom';
 import { CONFIG, resolveDataPath } from '../config';
 import TextWithEmails from './TextWithEmails';
 import EmailDisplay from './EmailDisplay';
@@ -16,22 +16,19 @@ const measureTextWidth = (text, fontStyle) => {
 const truncateDateToWidth = (dateStr, maxWidth, fontStyle) => {
     if (!dateStr) return '';
 
-    // Check if the full text fits immediately
     if (measureTextWidth(dateStr, fontStyle) <= maxWidth) {
         return dateStr;
     }
 
     const suffix = " ...";
-    const words = dateStr.split(/(\s+)/); // Keep spaces as tokens to protect word structures
+    const words = dateStr.split(/(\s+)/);
     let currentText = '';
     let result = suffix;
 
     for (let i = 0; i < words.length; i++) {
-        // Skip leading whitespace tokens
         if (i === 0 && words[i].trim() === '') continue;
 
         const nextChunk = currentText + words[i];
-        // Clean up trailing spaces/slashes for testing the width accurately
         const cleanedChunk = nextChunk.replace(/[ /]+$/, '');
         const testText = cleanedChunk + suffix;
 
@@ -54,7 +51,7 @@ export default function RootView() {
 
     const letterRefs = useRef({});
     const gridContainerRef = useRef(null);
-    const location = useLocation(); // Track navigation state
+    const location = useLocation();
 
     const getCzechStartingLetter = (name) => {
         if (!name) return '';
@@ -71,7 +68,6 @@ export default function RootView() {
                 return res.json();
             })
             .then((data) => {
-                // Sort galleries according to Czech alphabetical rules (Ž correctly after Z)
                 const sortedData = [...data].sort((a, b) =>
                     (a.name || '').localeCompare(b.name || '', 'cs')
                 );
@@ -92,8 +88,6 @@ export default function RootView() {
             const gridItems = gridContainerRef.current.children;
             const widths = {};
 
-            // Calculate available width inside card minus padding
-            // Tailwind px-4 padding = 16px left + 16px right = 32px
             for (let i = 0; i < gridItems.length; i++) {
                 const card = gridItems[i];
                 if (card) {
@@ -104,38 +98,35 @@ export default function RootView() {
             setContainerWidths(widths);
         };
 
-        // Create ResizeObserver to keep widths perfectly in sync
         const resizeObserver = new ResizeObserver(handleResize);
         resizeObserver.observe(gridContainerRef.current);
-
-        // Initial measurement
         handleResize();
 
         return () => resizeObserver.disconnect();
     }, [loading, galleries]);
 
-    // Autoscroll back ONLY when returning via the back link
+    // Autoscroll back to the last opened gallery card upon return (link click or browser back)
     useLayoutEffect(() => {
         if (loading || galleries.length === 0) return;
 
-        // Check if we came from a link that set the 'fromGallery' state flag
-        const isReturningFromGallery = location.state?.fromGallery;
+        const targetGalleryDir = location.state?.fromGallery || sessionStorage.getItem('lastViewedGallery');
 
-        if (isReturningFromGallery) {
-            const savedLetter = sessionStorage.getItem('lastGalleryLetter');
-            if (savedLetter && letterRefs.current[savedLetter]) {
-                // Tiny timeout allows layout styles to paint completely before scrolling
+        if (targetGalleryDir) {
+            const element = document.getElementById(`gallery-card-${targetGalleryDir}`);
+            if (element) {
                 const timer = setTimeout(() => {
-                    const element = letterRefs.current[savedLetter];
                     const elementPosition = element.getBoundingClientRect().top + window.scrollY;
-                    const offsetPosition = elementPosition - 20;
+                    const offsetPosition = elementPosition - 20; // 20px breathing room at the top
                     window.scrollTo({ top: offsetPosition, behavior: 'auto' });
+
+                    // Clear after scroll to prevent jumping on completely new fresh visits
+                    sessionStorage.removeItem('lastViewedGallery');
                 }, 50);
 
                 return () => clearTimeout(timer);
             }
         }
-    }, [loading, galleries, location.state]);
+    }, [loading, galleries, location]);
 
     if (loading) return <div className="text-center p-10 font-semibold">Loading galleries...</div>;
     if (error) return <div className="text-center p-10 text-red-600 font-semibold">Error: {error}</div>;
@@ -159,7 +150,6 @@ export default function RootView() {
     });
 
     const scrollToLetter = (letter) => {
-        sessionStorage.setItem('lastGalleryLetter', letter);
         const element = letterRefs.current[letter];
         if (element) {
             const elementPosition = element.getBoundingClientRect().top + window.scrollY;
@@ -168,7 +158,6 @@ export default function RootView() {
         }
     };
 
-    // Target typography layout to measure exact font pixels (Tailwind text-xs = 12px)
     const dateFontStyle = '12px sans-serif';
 
     return (
@@ -208,17 +197,15 @@ export default function RootView() {
                         const letter = getCzechStartingLetter(gallery.name);
                         const isFirstOfLetter = letterToFirstIndexMap[letter] === index;
 
-                        const availableWidth = containerWidths[index] || 200; // Fallback estimate before observer renders
+                        const availableWidth = containerWidths[index] || 200;
                         const displayDate = truncateDateToWidth(gallery.date, availableWidth, dateFontStyle);
 
                         return (
                             <Link
                                 key={index}
+                                id={`gallery-card-${gallery.directory}`} // Unique identifier for targeted scrolling upon return
                                 ref={el => { if (isFirstOfLetter) letterRefs.current[letter] = el; }}
                                 to={`/gallery/${gallery.directory}`}
-                                onClick={() => {
-                                    if (letter) sessionStorage.setItem('lastGalleryLetter', letter);
-                                }}
                                 className={`group rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col ${isDark ? 'bg-gray-800' : 'bg-white'}`}
                             >
                                 <div className={`w-full aspect-[4/3] overflow-hidden ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
@@ -236,7 +223,7 @@ export default function RootView() {
                                     </h2>
                                     {gallery.date && (
                                         <p
-                                            title={gallery.date} // Full date visible natively on hover
+                                            title={gallery.date}
                                             className={`text-xs mt-1 truncate-render ${isDark ? 'text-gray-400' : 'text-gray-500'}`}
                                         >
                                             {displayDate}
