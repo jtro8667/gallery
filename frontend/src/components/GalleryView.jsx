@@ -127,7 +127,7 @@ export default function GalleryView() {
             {/* Added location state flag so RootView knows we came back from a specific gallery */}
             <Link
                 to="/"
-                state={{ fromGallery: true }}
+                state={{ fromGallery: galleryPath.split('/').pop() }}
                 className={'hover:underline inline-block mb-6 font-medium ' + (isDark ? 'text-blue-400' : 'text-blue-600')}
             >
                 {CONFIG.BACK_TO_ROOT}
